@@ -9,6 +9,7 @@ final class VHALPeripheral: NSObject, CBPeripheralManagerDelegate, @unchecked Se
     private let queue = DispatchQueue(label: "com.kadireren.ex30dashboard.vhal")
     private var manager: CBPeripheralManager!
     private var subscriptionCharacteristic: CBMutableCharacteristic?
+    private var isConfigured = false
     private var lastSequence: UInt32?
     private let onValues: ([SensorKey: Double]) -> Void
     private let onState: (Bool, String) -> Void
@@ -29,6 +30,7 @@ final class VHALPeripheral: NSObject, CBPeripheralManagerDelegate, @unchecked Se
         queue.async { [weak self] in
             self?.manager.stopAdvertising()
             self?.manager.removeAllServices()
+            self?.isConfigured = false
             self?.onState(false, "VHAL durduruldu")
         }
     }
@@ -39,9 +41,12 @@ final class VHALPeripheral: NSObject, CBPeripheralManagerDelegate, @unchecked Se
 
     private func configureIfReady() {
         guard manager.state == .poweredOn else {
+            isConfigured = false
             onState(false, manager.state == .poweredOff ? "Bluetooth kapalı" : "VHAL BLE bekleniyor")
             return
         }
+        guard !isConfigured else { return }
+        isConfigured = true
         manager.stopAdvertising()
         manager.removeAllServices()
 
@@ -51,7 +56,7 @@ final class VHALPeripheral: NSObject, CBPeripheralManagerDelegate, @unchecked Se
                                                  permissions: [.writeable])
         let subscription = CBMutableCharacteristic(type: Self.subscriptionUUID,
                                                     properties: [.read, .notify],
-                                                    value: Self.subscriptionPacket,
+                                                    value: nil,
                                                     permissions: [.readable])
         subscriptionCharacteristic = subscription
         let service = CBMutableService(type: Self.serviceUUID, primary: true)
@@ -61,6 +66,7 @@ final class VHALPeripheral: NSObject, CBPeripheralManagerDelegate, @unchecked Se
 
     func peripheralManager(_ peripheral: CBPeripheralManager, didAdd service: CBService, error: Error?) {
         guard error == nil else {
+            isConfigured = false
             onState(false, "VHAL servisi açılamadı")
             return
         }
