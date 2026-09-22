@@ -40,12 +40,20 @@ struct DashboardRootView: View {
                         ConnectionBadge(label: "OBD", connected: telemetry.obdConnected)
                         ConnectionBadge(label: "VHAL", connected: telemetry.vhalConnected)
                         Button { settingsVisible.toggle() } label: {
-                            Image(systemName: "gearshape.fill").font(.system(size: 18, weight: .medium))
+                            Image(systemName: "gearshape.fill")
+                                .font(.system(size: 19, weight: .medium))
+                                .frame(width: 46, height: 46)
+                                .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                         .foregroundStyle(.primary.opacity(0.72))
                     }
-                    .padding(.top, 8)
+                    .padding(.horizontal, 10)
+                    .background(.ultraThinMaterial, in: Capsule())
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .padding(.top, max(geometry.safeAreaInsets.top, 12))
+                    .padding(.leading, geometry.safeAreaInsets.leading + 14)
+                    .padding(.trailing, geometry.safeAreaInsets.trailing + 14)
                     Spacer()
                     HStack(spacing: 7) {
                         ForEach(DashboardPage.allCases) { item in
@@ -56,6 +64,7 @@ struct DashboardRootView: View {
                     }
                     .padding(.bottom, 5)
                 }
+                .frame(width: geometry.size.width, height: geometry.size.height)
                 .zIndex(100)
 
                 if settingsVisible {
