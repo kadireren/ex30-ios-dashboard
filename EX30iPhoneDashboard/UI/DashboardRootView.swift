@@ -48,9 +48,7 @@ struct DashboardRootView: View {
                         .buttonStyle(.plain)
                         .foregroundStyle(.primary.opacity(0.72))
                     }
-                    .padding(.horizontal, 10)
-                    .background(.ultraThinMaterial, in: Capsule())
-                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.top, max(geometry.safeAreaInsets.top, 12))
                     .padding(.leading, geometry.safeAreaInsets.leading + 14)
                     .padding(.trailing, geometry.safeAreaInsets.trailing + 14)
