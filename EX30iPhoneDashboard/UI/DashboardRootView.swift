@@ -76,6 +76,8 @@ struct DashboardRootView: View {
         .persistentSystemOverlays(.hidden)
         .statusBarHidden(true)
         .preferredColorScheme(preferredColorScheme)
+        .onAppear { telemetry.setActivePage(page) }
+        .onChange(of: page) { _, selected in telemetry.setActivePage(selected) }
     }
 
     private var preferredColorScheme: ColorScheme? {

@@ -17,6 +17,7 @@ final class OBDCentral: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
     private var pollTimer: DispatchSourceTimer?
     private var currentECU: OBDECU?
     private var nextDue: [SensorKey: Date] = [:]
+    private var enabledRequests: [OBDRequest] = []
     private var reconnectWork: DispatchWorkItem?
 
     private let onValue: (SensorKey, Double) -> Void
@@ -31,6 +32,15 @@ final class OBDCentral: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
     }
 
     func start() { queue.async { [weak self] in self?.scanIfReady() } }
+
+    func setVisibleSensors(_ sensors: Set<SensorKey>) {
+        queue.async { [weak self] in
+            guard let self else { return }
+            enabledRequests = OBDDecoder.enabledRequests(visibleSensors: sensors)
+            let enabled = Set(enabledRequests.map(\.key))
+            nextDue = nextDue.filter { enabled.contains($0.key) }
+        }
+    }
 
     func stop() {
         queue.async { [weak self] in
@@ -146,14 +156,17 @@ final class OBDCentral: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
         }
     }
 
-    private func run(commands: [String], index: Int, completion: @escaping (Bool) -> Void) {
+    private func run(commands: [String], index: Int,
+                     shouldContinue: @escaping () -> Bool = { true },
+                     completion: @escaping (Bool) -> Void) {
+        guard shouldContinue() else { completion(false); return }
         guard index < commands.count else { completion(true); return }
         send(commands[index], timeout: commands[index] == "ATZ" ? 4 : 2.5) { [weak self] response in
             guard let self, let response, !response.uppercased().contains("ERROR") else {
                 completion(false)
                 return
             }
-            run(commands: commands, index: index + 1, completion: completion)
+            run(commands: commands, index: index + 1, shouldContinue: shouldContinue, completion: completion)
         }
     }
 
@@ -190,13 +203,21 @@ final class OBDCentral: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
     private func pollNext() {
         guard pendingCompletion == nil else { return }
         let now = Date()
-        guard let request = OBDDecoder.requests
+        guard let request = enabledRequests
             .filter({ now >= nextDue[$0.key, default: .distantPast] })
-            .sorted(by: { nextDue[$0.key, default: .distantPast] < nextDue[$1.key, default: .distantPast] })
+            .sorted(by: {
+                let leftDue = nextDue[$0.key, default: .distantPast]
+                let rightDue = nextDue[$1.key, default: .distantPast]
+                if leftDue != rightDue { return leftDue < rightDue }
+                if $0.priority != $1.priority { return $0.priority < $1.priority }
+                if ($0.ecu == currentECU) != ($1.ecu == currentECU) { return $0.ecu == currentECU }
+                return $0.interval < $1.interval
+            })
             .first else { return }
 
         let query: () -> Void = { [weak self] in
             guard let self else { return }
+            guard enabledRequests.contains(where: { $0.key == request.key }) else { return }
             send(request.command) { [weak self] response in
                 guard let self else { return }
                 let value = response.flatMap { OBDDecoder.decode(key: request.key, response: $0) }
@@ -205,7 +226,11 @@ final class OBDCentral: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
             }
         }
         guard currentECU != request.ecu else { query(); return }
-        run(commands: request.ecu.setup, index: 0) { [weak self] success in
+        // A partial setup must never leave the previous ECU marked as configured.
+        currentECU = nil
+        run(commands: request.ecu.setup, index: 0, shouldContinue: { [weak self] in
+            self?.enabledRequests.contains(where: { $0.key == request.key }) ?? false
+        }) { [weak self] success in
             guard let self else { return }
             if success { currentECU = request.ecu; query() }
             else { nextDue[request.key] = Date().addingTimeInterval(1) }

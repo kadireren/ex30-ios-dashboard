@@ -11,6 +11,7 @@ final class VHALPeripheral: NSObject, CBPeripheralManagerDelegate, @unchecked Se
     private var subscriptionCharacteristic: CBMutableCharacteristic?
     private var isConfigured = false
     private var lastSequence: UInt32?
+    private var subscriptionPacket = VHALSubscription.packet(visibleSensors: [])
     private let onValues: ([SensorKey: Double]) -> Void
     private let onState: (Bool, String) -> Void
 
@@ -24,6 +25,25 @@ final class VHALPeripheral: NSObject, CBPeripheralManagerDelegate, @unchecked Se
 
     func start() {
         queue.async { [weak self] in self?.configureIfReady() }
+    }
+
+    func setVisibleSensors(_ sensors: Set<SensorKey>) {
+        queue.async { [weak self] in
+            guard let self else { return }
+            subscriptionPacket = VHALSubscription.packet(visibleSensors: sensors)
+            publishSubscription()
+        }
+    }
+
+    private func publishSubscription() {
+        guard manager.state == .poweredOn, let subscriptionCharacteristic,
+              !(subscriptionCharacteristic.subscribedCentrals ?? []).isEmpty else { return }
+        // When the transmit queue is full, CoreBluetooth calls the ready delegate below.
+        manager.updateValue(subscriptionPacket, for: subscriptionCharacteristic, onSubscribedCentrals: nil)
+    }
+
+    func peripheralManagerIsReady(toUpdateSubscribers peripheral: CBPeripheralManager) {
+        publishSubscription()
     }
 
     func stop() {
@@ -85,11 +105,7 @@ final class VHALPeripheral: NSObject, CBPeripheralManagerDelegate, @unchecked Se
                            didSubscribeTo characteristic: CBCharacteristic) {
         lastSequence = nil
         onState(true, "VHAL bağlı")
-        if let subscriptionCharacteristic {
-            peripheral.updateValue(Self.subscriptionPacket,
-                                   for: subscriptionCharacteristic,
-                                   onSubscribedCentrals: [central])
-        }
+        publishSubscription()
     }
 
     func peripheralManager(_ peripheral: CBPeripheralManager, central: CBCentral,
@@ -103,7 +119,11 @@ final class VHALPeripheral: NSObject, CBPeripheralManagerDelegate, @unchecked Se
             peripheral.respond(to: request, withResult: .requestNotSupported)
             return
         }
-        request.value = Self.subscriptionPacket
+        guard request.offset <= subscriptionPacket.count else {
+            peripheral.respond(to: request, withResult: .invalidOffset)
+            return
+        }
+        request.value = subscriptionPacket.subdata(in: request.offset..<subscriptionPacket.count)
         peripheral.respond(to: request, withResult: .success)
     }
 
@@ -143,10 +163,6 @@ final class VHALPeripheral: NSObject, CBPeripheralManagerDelegate, @unchecked Se
         6: .gear, 7: .currentGear, 10: .outsideTemp, 11: .nightMode
     ]
 
-    private static let subscriptionPacket = Data([
-        0xE3, 0x30, 0x01, 0x01, 0x08,
-        0x01, 0x03, 0x04, 0x05, 0x06, 0x07, 0x0A, 0x0B
-    ])
 }
 
 private extension Data {

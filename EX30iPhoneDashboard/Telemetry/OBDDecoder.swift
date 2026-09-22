@@ -18,10 +18,26 @@ struct OBDRequest {
     let ecu: OBDECU
     let command: String
     let interval: TimeInterval
+
+    var priority: Int {
+        if interval <= 0.1 { return 0 }
+        if interval <= 1 { return 1 }
+        if interval < 10 { return 2 }
+        return 3
+    }
 }
 
 enum OBDDecoder {
+    static func enabledRequests(visibleSensors: Set<SensorKey>) -> [OBDRequest] {
+        var required = visibleSensors
+        if required.contains(.rawSoc) { required.insert(.soc) }
+        if required.contains(.power) { required.formUnion([.hvCurrent, .hvVoltage]) }
+        if required.contains(.mechanicalPower) { required.formUnion([.rpm, .torque]) }
+        return requests.filter { required.contains($0.key) }
+    }
+
     static let requests: [OBDRequest] = [
+        .init(key: .pedal, ecu: .vcFront, command: "22E301", interval: 0.10),
         .init(key: .speed, ecu: .ecuE, command: "22F40D", interval: 0.10),
         .init(key: .hvCurrent, ecu: .becm, command: "224802", interval: 0.10),
         .init(key: .hvVoltage, ecu: .becm, command: "224803", interval: 0.50),
@@ -54,6 +70,7 @@ enum OBDDecoder {
         }
         let did: String
         switch key {
+        case .pedal: did = "E301"
         case .speed: did = "F40D"
         case .hvCurrent: did = "4802"
         case .hvVoltage: did = "4803"
@@ -85,6 +102,10 @@ enum OBDDecoder {
             return Int(payload[start..<end], radix: 16)
         }
         switch key {
+        case .pedal:
+            // Confirmed Sensor Lab PWM scale: released pedal is about 7, not 0.
+            guard let raw = hex(2), raw <= 100 else { return nil }
+            return Double(raw)
         case .speed: return hex(2).map(Double.init)
         case .hvCurrent: return hex(4).map { (Double($0) - 16_384) * 0.1 }
         case .hvVoltage: return hex(4).map { Double($0) / 100 }

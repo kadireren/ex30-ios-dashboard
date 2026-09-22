@@ -7,19 +7,38 @@ final class TelemetryStore: ObservableObject {
     @Published private(set) var obdStatus = "OBD hazırlanıyor"
     @Published private(set) var vhalStatus = "VHAL hazırlanıyor"
     @Published var style: DashboardStyle {
-        didSet { UserDefaults.standard.set(style.rawValue, forKey: "dashboardStyle") }
+        didSet {
+            UserDefaults.standard.set(style.rawValue, forKey: "dashboardStyle")
+            updateSensorSelection()
+        }
     }
     @Published var appearance: DashboardAppearance {
         didSet { UserDefaults.standard.set(appearance.rawValue, forKey: "dashboardAppearance") }
     }
-    @Published private(set) var readings: [SensorKey: TelemetryReading] = [:]
+    @Published private(set) var resolver = TelemetryResolver()
     @Published var visibleSensors: Set<SensorKey> {
-        didSet { UserDefaults.standard.set(visibleSensors.map(\.rawValue), forKey: "visibleSensors") }
+        didSet {
+            UserDefaults.standard.set(visibleSensors.map(\.rawValue), forKey: "visibleSensors")
+            updateSensorSelection()
+        }
     }
 
     private var obd: OBDCentral?
     private var vhal: VHALPeripheral?
     private var started = false
+    private var freshnessTimer: Timer?
+    private var activePage: DashboardPage = .main
+
+    func setActivePage(_ page: DashboardPage) {
+        activePage = page
+        updateSensorSelection()
+    }
+
+    private func updateSensorSelection() {
+        let active = DashboardSensorSelection.active(page: activePage, style: style, visible: visibleSensors)
+        obd?.setVisibleSensors(active)
+        vhal?.setVisibleSensors(active)
+    }
 
     init() {
         style = DashboardStyle(rawValue: UserDefaults.standard.integer(forKey: "dashboardStyle")) ?? .minimal
@@ -30,10 +49,14 @@ final class TelemetryStore: ObservableObject {
                 restored.formUnion(SensorKey.allCases.filter(\.isUserSelectable))
                 UserDefaults.standard.set(1, forKey: "visibleSensorsVersion")
             }
+            if UserDefaults.standard.integer(forKey: "visibleSensorsVersion") < 2 {
+                restored.insert(.rawSoc)
+                UserDefaults.standard.set(2, forKey: "visibleSensorsVersion")
+            }
             visibleSensors = restored
         } else {
             visibleSensors = Set(SensorKey.allCases.filter(\.isUserSelectable))
-            UserDefaults.standard.set(1, forKey: "visibleSensorsVersion")
+            UserDefaults.standard.set(2, forKey: "visibleSensorsVersion")
         }
     }
 
@@ -44,6 +67,10 @@ final class TelemetryStore: ObservableObject {
     func start() {
         guard !started else { return }
         started = true
+        // Re-evaluate source selection even when VHAL silently stops sending.
+        freshnessTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.objectWillChange.send() }
+        }
         obd = OBDCentral(
             onValue: { [weak self] key, value in
                 Task { @MainActor in self?.put(key, value: value, source: .obd) }
@@ -60,49 +87,30 @@ final class TelemetryStore: ObservableObject {
             },
             onState: { [weak self] connected, message in
                 Task { @MainActor in
+                    self?.resolver.vhalConnected = connected
                     self?.vhalConnected = connected
                     self?.vhalStatus = message
                 }
             })
+        updateSensorSelection()
         obd?.start()
         vhal?.start()
     }
 
     func stop() {
+        freshnessTimer?.invalidate()
+        freshnessTimer = nil
+        resolver.vhalConnected = false
         obd?.stop()
         vhal?.stop()
         started = false
     }
 
     func value(_ key: SensorKey) -> Double? {
-        switch key {
-        case .power:
-            if let vhal = fresh(.power, source: .vhal) { return vhal.value }
-            guard let current = fresh(.hvCurrent, source: .obd),
-                  let voltage = fresh(.hvVoltage, source: .obd) else { return nil }
-            return current.value * voltage.value / 1_000
-        case .mechanicalPower:
-            guard let rpm = fresh(.rpm, source: .obd), let torque = fresh(.torque, source: .obd) else { return nil }
-            return rpm.value * torque.value / 9_549.3 * 1.35962
-        case .speed, .soc, .range:
-            return fresh(key, source: .vhal)?.value ?? fresh(key, source: .obd)?.value
-        default:
-            return fresh(key, source: .vhal)?.value ?? fresh(key, source: .obd)?.value
-        }
-    }
-
-    private func fresh(_ key: SensorKey, source: TelemetrySource) -> TelemetryReading? {
-        guard let reading = readings[key], reading.source == source,
-              reading.isFresh(maxAge: source == .vhal ? 3 : 5) else { return nil }
-        return reading
+        resolver.value(key)
     }
 
     private func put(_ key: SensorKey, value: Double, source: TelemetrySource) {
-        if source == .vhal || readings[key]?.source != .vhal || !(readings[key]?.isFresh(maxAge: 3) ?? false) {
-            readings[key] = TelemetryReading(value: value, timestamp: Date(), source: source)
-        }
-        if key == .hvCurrent || key == .hvVoltage || key == .rpm || key == .torque {
-            objectWillChange.send()
-        }
+        resolver.put(key, value: value, source: source)
     }
 }
