@@ -12,6 +12,7 @@
     <key>CFBundleShortVersionString</key><string>1.0</string>
     <key>CFBundleVersion</key><string>1</string>
     <key>LSRequiresIPhoneOS</key><true/>
+    <key>ITSAppUsesNonExemptEncryption</key><false/>
     <key>NSBluetoothAlwaysUsageDescription</key><string>EX30 OBD ve VHAL verilerini göstermek için Bluetooth kullanılır.</string>
     <key>NSBluetoothPeripheralUsageDescription</key><string>EX30 OBD ve VHAL verilerini göstermek için Bluetooth kullanılır.</string>
     <key>UIApplicationSceneManifest</key>
