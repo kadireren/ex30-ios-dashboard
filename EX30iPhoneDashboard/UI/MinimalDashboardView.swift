@@ -6,6 +6,7 @@ struct MinimalDashboardView: View {
     var body: some View {
         let speed = telemetry.value(.speed)
         let power = telemetry.value(.power)
+        let displayedPower = power.map { $0.clamped(-99.9...99.9) }
         VStack(spacing: 0) {
             Spacer(minLength: 4)
             if telemetry.visibleSensors.contains(.speed) {
@@ -17,7 +18,7 @@ struct MinimalDashboardView: View {
             }
             Spacer().frame(height: 14)
             if telemetry.visibleSensors.contains(.power) {
-                PowerBar(power: power).frame(maxWidth: 610)
+                PowerBar(power: displayedPower).frame(maxWidth: 610)
                 HStack {
                     Text("R E G E N").foregroundStyle(Color.green)
                     Spacer()
@@ -26,7 +27,7 @@ struct MinimalDashboardView: View {
                 .font(.system(size: 11, weight: .semibold))
                 .frame(maxWidth: 610)
                 .padding(.top, 7)
-                Text(power.map { String(format: "%+.1f kW", $0) } ?? "-- kW")
+                Text(displayedPower.map { String(format: "%+.1f kW", $0) } ?? "-- kW")
                     .font(.system(size: 24, weight: .semibold, design: .rounded))
                     .foregroundStyle(Color(red: 0.84, green: 0.66, blue: 0.29))
                     .padding(.top, 8)
@@ -62,7 +63,7 @@ private struct PowerBar: View {
     var body: some View {
         GeometryReader { geometry in
             let half = geometry.size.width / 2
-            let normalized = (power ?? 0).clamped(-100...100) / 100
+            let normalized = (power ?? 0).clamped(-99.9...99.9) / 99.9
             ZStack {
                 RoundedRectangle(cornerRadius: 3).fill(Color.primary.opacity(0.11))
                 Rectangle().fill(Color.primary.opacity(0.4)).frame(width: 2)
