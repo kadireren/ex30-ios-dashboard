@@ -9,6 +9,7 @@ struct SportOneDashboardView: View {
         let hp = telemetry.value(.mechanicalPower)
         let speed = telemetry.value(.speed)
         let power = telemetry.value(.power)
+        let displayedPower = power.map { $0.clamped(-99.9...99.9) }
         ZStack {
             HStack {
                 if telemetry.visibleSensors.contains(.torque) {
@@ -33,13 +34,13 @@ struct SportOneDashboardView: View {
                 }
                 Spacer()
                 if telemetry.visibleSensors.contains(.power) {
-                    RingGauge(progress: abs(power ?? 0) / 100,
-                              color: (power ?? 0) < 0 ? .cyan : Color(red: 1, green: 0.38, blue: 0.2), width: 15)
+                    RingGauge(progress: abs(displayedPower ?? 0) / 99.9,
+                              color: (displayedPower ?? 0) < 0 ? .cyan : Color(red: 1, green: 0.38, blue: 0.2), width: 15)
                         .frame(width: 260, height: 125)
                         .rotationEffect(.degrees(40))
-                    Text(power.map { String(format: "%+.0f kW", $0) } ?? "-- kW")
+                    Text(displayedPower.map { String(format: "%+.1f kW", $0) } ?? "-- kW")
                         .font(.system(size: 23, weight: .bold, design: .rounded))
-                        .foregroundStyle((power ?? 0) < 0 ? .cyan : Color(red: 1, green: 0.38, blue: 0.2))
+                        .foregroundStyle((displayedPower ?? 0) < 0 ? .cyan : Color(red: 1, green: 0.38, blue: 0.2))
                         .offset(y: -48)
                 }
                 FooterMetrics(soc: telemetry.value(.soc), odometer: telemetry.value(.odometer),
