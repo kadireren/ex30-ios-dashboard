@@ -23,31 +23,28 @@ struct SportOneDashboardView: View {
                 }
             }
             .padding(.horizontal, 18)
-            .padding(.top, 38)
-            .padding(.bottom, 76)
+            .padding(.vertical, 8)
 
             VStack(spacing: 0) {
-                Spacer().frame(height: 64)
                 if telemetry.visibleSensors.contains(.speed) {
                     Text(speed.map { String(Int($0.rounded())) } ?? "--")
-                        .font(.system(size: 102, weight: .thin, design: .rounded)).monospacedDigit()
+                        .font(.system(size: 82, weight: .thin, design: .rounded)).monospacedDigit()
                     Text("km/h").font(.system(size: 17)).foregroundStyle(.primary.opacity(0.62))
                 }
                 Spacer()
                 if telemetry.visibleSensors.contains(.power) {
                     RingGauge(progress: abs(power ?? 0) / 100,
                               color: (power ?? 0) < 0 ? .cyan : Color(red: 1, green: 0.38, blue: 0.2), width: 15)
-                        .frame(width: 330, height: 160)
+                        .frame(width: 260, height: 125)
                         .rotationEffect(.degrees(40))
                     Text(power.map { String(format: "%+.0f kW", $0) } ?? "-- kW")
                         .font(.system(size: 23, weight: .bold, design: .rounded))
                         .foregroundStyle((power ?? 0) < 0 ? .cyan : Color(red: 1, green: 0.38, blue: 0.2))
-                        .offset(y: -60)
+                        .offset(y: -48)
                 }
-                Spacer().frame(height: 2)
                 FooterMetrics(soc: telemetry.value(.soc), odometer: telemetry.value(.odometer),
                               range: telemetry.value(.range), visibleSensors: telemetry.visibleSensors)
-                    .padding(.horizontal, 28).padding(.bottom, 18)
+                    .padding(.horizontal, 28).padding(.bottom, 2)
             }
         }
     }
@@ -91,8 +88,8 @@ private struct SportCard: View {
                 Spacer()
             }
         }
-        .padding(16)
-        .frame(width: 220, height: 276)
+        .padding(13)
+        .frame(width: 190, height: 230)
         .background(colorScheme == .dark ? Color(red: 0.03, green: 0.045, blue: 0.055) : Color.white,
                     in: RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.primary.opacity(0.2), lineWidth: 2))

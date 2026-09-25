@@ -103,6 +103,12 @@ final class TelemetryStore: ObservableObject {
         resolver.vhalConnected = false
         obd?.stop()
         vhal?.stop()
+        obd = nil
+        vhal = nil
+        obdConnected = false
+        vhalConnected = false
+        obdStatus = "OBD durduruldu"
+        vhalStatus = "VHAL durduruldu"
         started = false
     }
 

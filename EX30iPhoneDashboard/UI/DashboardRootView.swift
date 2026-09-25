@@ -4,10 +4,14 @@ struct DashboardRootView: View {
     @EnvironmentObject private var telemetry: TelemetryStore
     @Environment(\.colorScheme) private var colorScheme
     @State private var settingsVisible = false
+    @State private var exitConfirmationVisible = false
+    @State private var standby = false
     @State private var page: DashboardPage = .main
 
     var body: some View {
         GeometryReader { geometry in
+            let contentTop = max(geometry.safeAreaInsets.top, 8) + 52
+            let horizontalInset = max(geometry.safeAreaInsets.leading, geometry.safeAreaInsets.trailing)
             ZStack {
                 (colorScheme == .dark ? Color.black : Color(red: 0.94, green: 0.95, blue: 0.96))
                     .ignoresSafeArea()
@@ -23,12 +27,17 @@ struct DashboardRootView: View {
                     }
                 }
                 .environmentObject(telemetry)
+                .padding(.top, contentTop)
+                .padding(.bottom, 18)
+                .padding(.horizontal, horizontalInset)
                 .contentShape(Rectangle())
                 .gesture(
                     DragGesture(minimumDistance: 35)
                         .onEnded(changeDashboard)
                 )
                 .zIndex(0)
+                .opacity(standby ? 0 : 1)
+                .allowsHitTesting(!standby)
 
                 VStack {
                     HStack(spacing: 14) {
@@ -64,11 +73,42 @@ struct DashboardRootView: View {
                 }
                 .frame(width: geometry.size.width, height: geometry.size.height)
                 .zIndex(100)
+                .opacity(standby ? 0 : 1)
+                .allowsHitTesting(!standby)
+
+                VStack {
+                    HStack {
+                        Spacer()
+                        Button { exitConfirmationVisible = true } label: {
+                            Image(systemName: "power")
+                                .font(.system(size: 18, weight: .semibold))
+                                .frame(width: 46, height: 46)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(Color.red.opacity(0.82))
+                    }
+                    Spacer()
+                }
+                .padding(.top, max(geometry.safeAreaInsets.top, 12))
+                .padding(.trailing, geometry.safeAreaInsets.trailing + 14)
+                .zIndex(110)
+                .opacity(standby ? 0 : 1)
+                .allowsHitTesting(!standby)
 
                 if settingsVisible {
                     SettingsOverlay(isPresented: $settingsVisible)
                         .environmentObject(telemetry)
                         .zIndex(200)
+                }
+
+                if standby {
+                    StandbyOverlay {
+                        UIApplication.shared.isIdleTimerDisabled = true
+                        telemetry.start()
+                        standby = false
+                    }
+                    .zIndex(300)
                 }
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
@@ -78,6 +118,12 @@ struct DashboardRootView: View {
         .preferredColorScheme(preferredColorScheme)
         .onAppear { telemetry.setActivePage(page) }
         .onChange(of: page) { _, selected in telemetry.setActivePage(selected) }
+        .alert("Bağlantılar kapatılsın mı?", isPresented: $exitConfirmationVisible) {
+            Button("Vazgeç", role: .cancel) {}
+            Button("Çıkış", role: .destructive) { enterStandby() }
+        } message: {
+            Text("OBD ve VHAL bağlantıları kesilecek, ekranın açık kalma kilidi kaldırılacak.")
+        }
     }
 
     private var preferredColorScheme: ColorScheme? {
@@ -101,6 +147,34 @@ struct DashboardRootView: View {
             page = pages[next]
         }
     }
+
+    private func enterStandby() {
+        settingsVisible = false
+        telemetry.stop()
+        UIApplication.shared.isIdleTimerDisabled = false
+        standby = true
+    }
+}
+
+private struct StandbyOverlay: View {
+    let restart: () -> Void
+
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+            VStack(spacing: 14) {
+                Image(systemName: "power")
+                    .font(.system(size: 34, weight: .light))
+                    .foregroundStyle(Color.red.opacity(0.8))
+                Text("Bağlantılar kapatıldı")
+                    .font(.system(size: 18, weight: .semibold, design: .rounded))
+                Button("YENİDEN BAŞLAT", action: restart)
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color(red: 0.72, green: 0.16, blue: 0.13))
+            }
+            .foregroundStyle(.white)
+        }
+    }
 }
 
 private struct ConnectionBadge: View {
@@ -121,49 +195,59 @@ private struct SettingsOverlay: View {
     @Binding var isPresented: Bool
 
     var body: some View {
-        ZStack {
-            Color.black.opacity(0.72).ignoresSafeArea().onTapGesture { isPresented = false }
-            VStack(spacing: 18) {
-                HStack {
-                    Text("GÖRÜNÜM").font(.headline)
-                    Spacer()
-                    Button { isPresented = false } label: { Image(systemName: "xmark.circle.fill") }
-                }
-                Picker("Görünüm", selection: $telemetry.style) {
-                    ForEach(DashboardStyle.allCases) { Text($0.title).tag($0) }
-                }
-                .pickerStyle(.segmented)
-                Picker("Renk modu", selection: $telemetry.appearance) {
-                    ForEach(DashboardAppearance.allCases) { Text($0.title).tag($0) }
-                }
-                .pickerStyle(.segmented)
-                Divider().overlay(Color.primary.opacity(0.15))
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(telemetry.obdStatus)
-                    Text(telemetry.vhalStatus)
-                }
-                .font(.system(size: 13, design: .rounded))
-                .foregroundStyle(.primary.opacity(0.72))
-                .frame(maxWidth: .infinity, alignment: .leading)
-                Divider().overlay(Color.primary.opacity(0.15))
-                Text("SENSÖRLER").font(.caption).foregroundStyle(.primary.opacity(0.6))
-                ScrollView {
-                    LazyVStack(spacing: 7) {
-                        ForEach(SensorKey.allCases.filter(\.isUserSelectable), id: \.self) { key in
-                            Toggle(key.title, isOn: Binding(
-                                get: { telemetry.visibleSensors.contains(key) },
-                                set: { telemetry.setVisible(key, $0) }
-                            ))
-                            .font(.system(size: 13, design: .rounded))
+        GeometryReader { geometry in
+            ZStack {
+                Color.black.opacity(0.72).ignoresSafeArea().onTapGesture { isPresented = false }
+                VStack(spacing: 10) {
+                    HStack {
+                        Text("GÖRÜNÜM").font(.headline)
+                        Spacer()
+                        Button { isPresented = false } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 22))
+                                .frame(width: 44, height: 36)
                         }
+                        .buttonStyle(.plain)
+                    }
+                    Picker("Görünüm", selection: $telemetry.style) {
+                        ForEach(DashboardStyle.allCases) { Text($0.title).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    Picker("Renk modu", selection: $telemetry.appearance) {
+                        ForEach(DashboardAppearance.allCases) { Text($0.title).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    HStack(alignment: .top, spacing: 18) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(telemetry.obdStatus)
+                            Text(telemetry.vhalStatus)
+                        }
+                        .font(.system(size: 12, design: .rounded))
+                        .foregroundStyle(.primary.opacity(0.72))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        Divider().overlay(Color.primary.opacity(0.15))
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text("SENSÖRLER").font(.caption).foregroundStyle(.primary.opacity(0.6))
+                            ScrollView {
+                                LazyVStack(spacing: 5) {
+                                    ForEach(SensorKey.allCases.filter(\.isUserSelectable), id: \.self) { key in
+                                        Toggle(key.title, isOn: Binding(
+                                            get: { telemetry.visibleSensors.contains(key) },
+                                            set: { telemetry.setVisible(key, $0) }
+                                        ))
+                                        .font(.system(size: 12, design: .rounded))
+                                    }
+                                }
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
                     }
                 }
-                .frame(maxHeight: 180)
+                .padding(16)
+                .frame(width: min(620, geometry.size.width - 48),
+                       height: min(350, geometry.size.height - 24))
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20))
             }
-            .padding(24)
-            .frame(maxWidth: 440)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20))
-            .padding()
         }
     }
 }

@@ -19,6 +19,7 @@ final class OBDCentral: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
     private var nextDue: [SensorKey: Date] = [:]
     private var enabledRequests: [OBDRequest] = []
     private var reconnectWork: DispatchWorkItem?
+    private var running = false
 
     private let onValue: (SensorKey, Double) -> Void
     private let onState: (Bool, String) -> Void
@@ -31,7 +32,12 @@ final class OBDCentral: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
         manager = CBCentralManager(delegate: self, queue: queue)
     }
 
-    func start() { queue.async { [weak self] in self?.scanIfReady() } }
+    func start() {
+        queue.async { [weak self] in
+            self?.running = true
+            self?.scanIfReady()
+        }
+    }
 
     func setVisibleSensors(_ sensors: Set<SensorKey>) {
         queue.async { [weak self] in
@@ -45,27 +51,36 @@ final class OBDCentral: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
     func stop() {
         queue.async { [weak self] in
             guard let self else { return }
+            running = false
             reconnectWork?.cancel()
+            timeoutWork?.cancel()
             pollTimer?.cancel()
             pollTimer = nil
             manager.stopScan()
+            pendingCompletion?(nil)
+            pendingCompletion = nil
             if let peripheral { manager.cancelPeripheralConnection(peripheral) }
+            peripheral = nil
+            notifyCharacteristic = nil
+            writeCharacteristic = nil
+            onState(false, "OBD durduruldu")
         }
     }
 
     func centralManagerDidUpdateState(_ central: CBCentralManager) {
-        if central.state == .poweredOn { scanIfReady() }
+        if central.state == .poweredOn, running { scanIfReady() }
         else { onState(false, central.state == .poweredOff ? "Bluetooth kapalı" : "OBD BLE bekleniyor") }
     }
 
     private func scanIfReady() {
-        guard manager.state == .poweredOn, peripheral == nil else { return }
+        guard running, manager.state == .poweredOn, peripheral == nil else { return }
         onState(false, "IOS-Vlink aranıyor")
         manager.scanForPeripherals(withServices: [Self.serviceUUID], options: [CBCentralManagerScanOptionAllowDuplicatesKey: false])
     }
 
     func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral,
                         advertisementData: [String: Any], rssi RSSI: NSNumber) {
+        guard running else { central.stopScan(); return }
         central.stopScan()
         self.peripheral = peripheral
         peripheral.delegate = self
@@ -74,6 +89,7 @@ final class OBDCentral: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
     }
 
     func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
+        guard running else { central.cancelPeripheralConnection(peripheral); return }
         onState(false, "OBD servisi okunuyor")
         peripheral.discoverServices([Self.serviceUUID])
     }
@@ -96,8 +112,12 @@ final class OBDCentral: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
         notifyCharacteristic = nil
         writeCharacteristic = nil
         currentECU = nil
-        onState(false, message + " · yeniden deneniyor")
         reconnectWork?.cancel()
+        guard running else {
+            onState(false, "OBD durduruldu")
+            return
+        }
+        onState(false, message + " · yeniden deneniyor")
         let work = DispatchWorkItem { [weak self] in self?.scanIfReady() }
         reconnectWork = work
         queue.asyncAfter(deadline: .now() + 2, execute: work)

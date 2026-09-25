@@ -9,16 +9,27 @@ struct SportTwoDashboardView: View {
         let hp = telemetry.value(.mechanicalPower)
         let power = telemetry.value(.power)
         VStack(spacing: 0) {
-            Spacer().frame(height: 45)
-            HStack(alignment: .top, spacing: 34) {
+            HStack(alignment: .center, spacing: 18) {
                 if telemetry.visibleSensors.contains(.speed) {
-                    VStack(alignment: .leading, spacing: 0) {
+                    VStack(spacing: 0) {
                         Text(speed.map { String(Int($0.rounded())) } ?? "--")
-                            .font(.system(size: 116, weight: .thin, design: .rounded)).monospacedDigit()
+                            .font(.system(size: 88, weight: .thin, design: .rounded)).monospacedDigit()
                         Text("km/h").font(.system(size: 18)).foregroundStyle(.primary.opacity(0.65))
-                            .frame(maxWidth: .infinity, alignment: .trailing)
                     }
-                    .frame(maxWidth: 320)
+                    .frame(width: 205)
+                }
+                if telemetry.visibleSensors.contains(.power) {
+                    ZStack {
+                        RingGauge(progress: abs(power ?? 0) / 100,
+                                  color: (power ?? 0) < 0 ? .cyan : Color(red: 1, green: 0.38, blue: 0.2), width: 14)
+                            .frame(width: 220, height: 135)
+                            .rotationEffect(.degrees(40))
+                        Text(power.map { String(format: "%+.0f kW", $0) } ?? "-- kW")
+                            .font(.system(size: 21, weight: .bold, design: .rounded))
+                            .foregroundStyle((power ?? 0) < 0 ? .cyan : Color(red: 1, green: 0.38, blue: 0.2))
+                            .offset(y: 18)
+                    }
+                    .frame(width: 220)
                 }
                 VStack(spacing: 10) {
                     if telemetry.visibleSensors.contains(.torque) {
@@ -31,26 +42,12 @@ struct SportTwoDashboardView: View {
                                              progress: abs(hp ?? 0) / 270)
                     }
                 }
-                .frame(maxWidth: 390)
-            }
-            .padding(.horizontal, 30)
-            if telemetry.visibleSensors.contains(.power) {
-                ZStack {
-                    RingGauge(progress: abs(power ?? 0) / 100,
-                              color: (power ?? 0) < 0 ? .cyan : Color(red: 1, green: 0.38, blue: 0.2), width: 17)
-                        .frame(width: 520, height: 185)
-                        .rotationEffect(.degrees(40))
-                    Text(power.map { String(format: "%+.0f kW", $0) } ?? "-- kW")
-                        .font(.system(size: 23, weight: .bold, design: .rounded))
-                        .foregroundStyle((power ?? 0) < 0 ? .cyan : Color(red: 1, green: 0.38, blue: 0.2))
-                        .offset(y: 24)
-                }
-                .frame(height: 120)
+                .frame(width: 220)
             }
             Spacer()
             FooterMetrics(soc: telemetry.value(.soc), odometer: telemetry.value(.odometer),
                           range: telemetry.value(.range), visibleSensors: telemetry.visibleSensors)
-                .padding(.horizontal, 28).padding(.bottom, 18)
+                .padding(.horizontal, 28).padding(.bottom, 2)
         }
     }
 }
@@ -74,10 +71,10 @@ private struct HorizontalMetricCard: View {
                 }
             }
             Spacer()
-            RingGauge(progress: progress, color: color, width: 10).frame(width: 90, height: 90)
+            RingGauge(progress: progress, color: color, width: 8).frame(width: 64, height: 64)
         }
-        .padding(.horizontal, 18)
-        .frame(height: 118)
+        .padding(.horizontal, 14)
+        .frame(height: 92)
         .background(colorScheme == .dark ? Color(red: 0.03, green: 0.04, blue: 0.05) : Color.white)
         .overlay(RoundedRectangle(cornerRadius: 5).stroke(Color.primary.opacity(0.22), lineWidth: 1.5))
     }

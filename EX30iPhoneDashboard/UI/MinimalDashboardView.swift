@@ -7,15 +7,15 @@ struct MinimalDashboardView: View {
         let speed = telemetry.value(.speed)
         let power = telemetry.value(.power)
         VStack(spacing: 0) {
-            Spacer(minLength: 32)
+            Spacer(minLength: 4)
             if telemetry.visibleSensors.contains(.speed) {
                 Text(speed.map { String(Int($0.rounded())) } ?? "--")
-                    .font(.system(size: 112, weight: .thin, design: .rounded))
+                    .font(.system(size: 92, weight: .thin, design: .rounded))
                     .monospacedDigit()
                     .contentTransition(.numericText())
                 Text("km/h").font(.system(size: 16, weight: .medium)).foregroundStyle(.primary.opacity(0.55))
             }
-            Spacer().frame(height: 28)
+            Spacer().frame(height: 14)
             if telemetry.visibleSensors.contains(.power) {
                 PowerBar(power: power).frame(maxWidth: 610)
                 HStack {
@@ -51,7 +51,7 @@ struct MinimalDashboardView: View {
             .font(.system(size: 16, weight: .medium, design: .rounded))
             .foregroundStyle(.primary.opacity(0.9))
             .padding(.horizontal, 28)
-            .padding(.bottom, 18)
+            .padding(.bottom, 2)
         }
     }
 }

@@ -22,8 +22,8 @@ struct SensorPageView: View {
                 }
             }
             .padding(.horizontal, 24)
-            .padding(.top, 54)
-            Spacer(minLength: 24)
+            .padding(.top, 6)
+            Spacer(minLength: 6)
         }
         .overlay {
             if sensors.isEmpty {
@@ -59,7 +59,7 @@ private struct SensorCard: View {
             Spacer(minLength: 0)
         }
         .padding(12)
-        .frame(maxWidth: .infinity, minHeight: 108, maxHeight: 118)
+        .frame(maxWidth: .infinity, minHeight: 98, maxHeight: 108)
         .background(colorScheme == .dark ? Color(red: 0.035, green: 0.048, blue: 0.058) : Color.white,
                     in: RoundedRectangle(cornerRadius: 10))
         .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.primary.opacity(0.14), lineWidth: 1))
