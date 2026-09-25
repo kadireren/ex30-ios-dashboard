@@ -28,6 +28,7 @@ final class TelemetryStore: ObservableObject {
     private var started = false
     private var freshnessTimer: Timer?
     private var activePage: DashboardPage = .main
+    private var lastKnownValues: [SensorKey: Double] = [:]
 
     func setActivePage(_ page: DashboardPage) {
         activePage = page
@@ -113,10 +114,18 @@ final class TelemetryStore: ObservableObject {
     }
 
     func value(_ key: SensorKey) -> Double? {
-        resolver.value(key)
+        resolver.value(key) ?? lastKnownValues[key]
     }
 
     private func put(_ key: SensorKey, value: Double, source: TelemetrySource) {
         resolver.put(key, value: value, source: source)
+
+        // Never blank a sensor between its scheduled polls. Cache every value the
+        // resolver can currently produce, including derived power values.
+        for sensor in SensorKey.allCases {
+            if let resolved = resolver.value(sensor) {
+                lastKnownValues[sensor] = resolved
+            }
+        }
     }
 }
