@@ -12,6 +12,8 @@ struct DashboardRootView: View {
         GeometryReader { geometry in
             let contentTop = max(geometry.safeAreaInsets.top, 8) + 52
             let horizontalInset = max(geometry.safeAreaInsets.leading, geometry.safeAreaInsets.trailing)
+            // Sol (saat+sıcaklık) ve sağ (power) kolonları eşit genişlikte tut; ortadaki rozetlerle çakışmayı önler.
+            let headerSideWidth: CGFloat = 118
             ZStack {
                 (colorScheme == .dark ? Color.black : Color(red: 0.94, green: 0.95, blue: 0.96))
                     .ignoresSafeArea()
@@ -40,24 +42,49 @@ struct DashboardRootView: View {
                 .allowsHitTesting(!standby)
 
                 VStack {
-                    HStack(spacing: 14) {
-                        if page != .main {
-                            Text(page.title)
-                                .font(.system(size: 14, weight: .bold, design: .rounded))
-                                .foregroundStyle(.primary.opacity(0.9))
+                    HStack(spacing: 0) {
+                        HStack(spacing: 0) {
+                            TimelineView(.periodic(from: .now, by: 1)) { context in
+                                Text(HeaderClockStyle.time.string(from: context.date))
+                                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                                    .monospacedDigit()
+                                    .foregroundStyle(.primary.opacity(0.9))
+                            }
+                            Text(outsideTempLabel)
+                                .font(.system(size: 16, weight: .medium, design: .rounded))
+                                .monospacedDigit()
+                                .foregroundStyle(.primary.opacity(0.82))
+                                .padding(.leading, 28)
                         }
-                        ConnectionBadge(label: "OBD", connected: telemetry.obdConnected)
-                        ConnectionBadge(label: "VHAL", connected: telemetry.vhalConnected)
-                        Button { settingsVisible.toggle() } label: {
-                            Image(systemName: "gearshape.fill")
-                                .font(.system(size: 19, weight: .medium))
-                                .frame(width: 46, height: 46)
-                                .contentShape(Rectangle())
+                        .frame(minWidth: headerSideWidth, alignment: .leading)
+                        .layoutPriority(1)
+
+                        Spacer(minLength: 12)
+
+                        HStack(spacing: 14) {
+                            if page != .main {
+                                Text(page.title)
+                                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                                    .foregroundStyle(.primary.opacity(0.9))
+                                    .lineLimit(1)
+                            }
+                            ConnectionBadge(label: "OBD", connected: telemetry.obdConnected)
+                            ConnectionBadge(label: "VHAL", connected: telemetry.vhalConnected)
+                            Button { settingsVisible.toggle() } label: {
+                                Image(systemName: "gearshape.fill")
+                                    .font(.system(size: 19, weight: .medium))
+                                    .frame(width: 46, height: 46)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(.primary.opacity(0.72))
                         }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(.primary.opacity(0.72))
+
+                        Spacer(minLength: 12)
+
+                        Color.clear
+                            .frame(width: headerSideWidth, height: 46)
                     }
-                    .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.top, max(geometry.safeAreaInsets.top, 12))
                     .padding(.leading, geometry.safeAreaInsets.leading + 14)
                     .padding(.trailing, geometry.safeAreaInsets.trailing + 14)
@@ -134,6 +161,10 @@ struct DashboardRootView: View {
         }
     }
 
+    private var outsideTempLabel: String {
+        telemetry.value(.outsideTemp).map { "\(Int($0.rounded()))°" } ?? "--°"
+    }
+
     private func changeDashboard(_ value: DragGesture.Value) {
         let horizontal = value.translation.width
         guard abs(horizontal) > abs(value.translation.height), abs(horizontal) >= 55 else { return }
@@ -154,6 +185,15 @@ struct DashboardRootView: View {
         UIApplication.shared.isIdleTimerDisabled = false
         standby = true
     }
+}
+
+private enum HeaderClockStyle {
+    static let time: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "tr_TR")
+        formatter.dateFormat = "HH:mm"
+        return formatter
+    }()
 }
 
 private struct StandbyOverlay: View {

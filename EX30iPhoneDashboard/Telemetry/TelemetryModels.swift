@@ -16,12 +16,15 @@ enum DashboardSensorSelection {
                        visible: Set<SensorKey>) -> Set<SensorKey> {
         let displayed: Set<SensorKey>
         if page == .main {
-            let base: Set<SensorKey> = [.speed, .power, .soc, .odometer, .range]
+            let base: Set<SensorKey> = [.speed, .power, .soc, .odometer, .range, .outsideTemp]
             displayed = style == .minimal ? base : base.union([.torque, .mechanicalPower])
         } else {
             displayed = Set(SensorKey.allCases.filter { $0.page == page })
         }
-        return displayed.intersection(visible)
+        var active = displayed.intersection(visible)
+        // Header sıcaklığı ana ekranda her zaman abone olsun (toggle'dan bağımsız).
+        if page == .main { active.insert(.outsideTemp) }
+        return active
     }
 }
 
