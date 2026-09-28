@@ -38,6 +38,11 @@ struct RingGauge: View {
     }
 }
 
+enum MainFooterMetricStyle {
+    static let socRangeText = Font.system(size: 19, weight: .medium, design: .rounded)
+    static let odoValue = Font.system(size: 19, weight: .medium, design: .rounded)
+}
+
 struct FooterMetrics: View {
     let soc: Double?
     let odometer: Double?
@@ -48,7 +53,11 @@ struct FooterMetrics: View {
         HStack {
             if visibleSensors.contains(.soc) {
                 Label(soc.map { "SOC \(Int($0.rounded()))%" } ?? "SOC --%", systemImage: "battery.75percent")
+                    .font(MainFooterMetricStyle.socRangeText)
+                    .labelStyle(.titleAndIcon)
                     .foregroundStyle(Color.cyan)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
             }
             Spacer()
             if visibleSensors.contains(.odometer) {
@@ -57,6 +66,7 @@ struct FooterMetrics: View {
                         .font(.system(size: 9, weight: .semibold, design: .rounded))
                         .foregroundStyle(.primary.opacity(0.45))
                     Text(odometer.map { String(format: "%.0f", $0) } ?? "--")
+                        .font(MainFooterMetricStyle.odoValue)
                         .foregroundStyle(.primary.opacity(0.9))
                         .monospacedDigit()
                 }
@@ -64,10 +74,13 @@ struct FooterMetrics: View {
             Spacer()
             if visibleSensors.contains(.range) {
                 Label(range.map { "\(Int($0.rounded())) km" } ?? "-- km", systemImage: "bolt.fill")
+                    .font(MainFooterMetricStyle.socRangeText)
+                    .labelStyle(.titleAndIcon)
                     .foregroundStyle(.primary.opacity(0.9))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
             }
         }
-        .font(.system(size: 16, weight: .medium, design: .rounded))
     }
 }
 

@@ -36,21 +36,33 @@ struct MinimalDashboardView: View {
             HStack {
                 if telemetry.visibleSensors.contains(.soc) {
                     Label(telemetry.value(.soc).map { "\(Int($0.rounded()))%" } ?? "--%", systemImage: "battery.75percent")
+                        .font(MainFooterMetricStyle.socRangeText)
+                        .labelStyle(.titleAndIcon)
+                        .foregroundStyle(.primary.opacity(0.9))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
                 }
                 Spacer()
                 if telemetry.visibleSensors.contains(.odometer) {
                     VStack(spacing: 2) {
-                        Text("ODO").font(.caption2).foregroundStyle(.primary.opacity(0.5))
+                        Text("ODO")
+                            .font(.system(size: 9, weight: .semibold, design: .rounded))
+                            .foregroundStyle(.primary.opacity(0.45))
                         Text(telemetry.value(.odometer).map { String(format: "%.0f", $0) } ?? "--")
+                            .font(MainFooterMetricStyle.odoValue)
+                            .foregroundStyle(.primary.opacity(0.9))
                     }
                 }
                 Spacer()
                 if telemetry.visibleSensors.contains(.range) {
                     Label(telemetry.value(.range).map { "\(Int($0.rounded())) km" } ?? "-- km", systemImage: "bolt.fill")
+                        .font(MainFooterMetricStyle.socRangeText)
+                        .labelStyle(.titleAndIcon)
+                        .foregroundStyle(.primary.opacity(0.9))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
                 }
             }
-            .font(.system(size: 16, weight: .medium, design: .rounded))
-            .foregroundStyle(.primary.opacity(0.9))
             .padding(.horizontal, 28)
             .padding(.bottom, 2)
         }
