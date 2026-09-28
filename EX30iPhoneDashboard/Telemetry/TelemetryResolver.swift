@@ -22,9 +22,8 @@ struct TelemetryResolver {
 
         if key == .rawSoc { return obd[.soc]?.value }
         if key == .soc {
-            if let raw = obd[.soc]?.value {
-                return min(max(raw * 1.0625 - 3.125, 0), 100)
-            }
+            // Ana gösterge = araç head unit (VHAL). OBD 4801 formülü yalnızca rawSoc/batarya detayında.
+            // VHAL gelene kadar nil → "--"; kopunca son head-unit değeri (range gibi), OBD'ye düşülmez.
             return vhal[.soc]?.value
         }
 

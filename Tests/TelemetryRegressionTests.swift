@@ -41,24 +41,24 @@ enum TelemetryRegressionTests {
         for response in ["62E301FF", "62E301", "NO DATA", "7F2231"] {
             precondition(OBDDecoder.decode(key: .pedal, response: response) == nil)
         }
-        // One BECM response supplies both the raw card and the rounded main display.
+        // BECM 4801 ham değeri rawSoc; ana .soc yalnızca VHAL (head unit).
         precondition(OBDDecoder.decode(key: .soc, response: "6248019C40") == 80)
         precondition(OBDDecoder.decode(key: .soc, response: "6248010000") == 0)
         precondition(OBDDecoder.decode(key: .soc, response: "624801FFFF") == 131.07)
         var socResolver = TelemetryResolver()
         socResolver.put(.soc, value: 80, source: .obd, now: start)
         precondition(socResolver.value(.rawSoc, now: start) == 80)
-        precondition(socResolver.value(.soc, now: start) == 81.875)
+        precondition(socResolver.value(.soc, now: start) == nil)
         socResolver.put(.soc, value: 83, source: .vhal, now: start)
         socResolver.vhalConnected = true
         precondition(socResolver.value(.soc, now: start) == 83)
         precondition(socResolver.value(.rawSoc, now: start) == 80)
         socResolver.vhalConnected = false
-        precondition(socResolver.value(.soc, now: start) == 81.875)
+        precondition(socResolver.value(.soc, now: start) == 83)
         socResolver.put(.soc, value: 0, source: .obd, now: start)
-        precondition(socResolver.value(.soc, now: start) == 0)
+        precondition(socResolver.value(.soc, now: start) == 83)
         socResolver.put(.soc, value: 110, source: .obd, now: start)
-        precondition(socResolver.value(.soc, now: start) == 100)
+        precondition(socResolver.value(.soc, now: start) == 83)
         let pedal = OBDDecoder.requests.filter { $0.key == .pedal }
         precondition(pedal.count == 1 && pedal[0].ecu == .vcFront && pedal[0].command == "22E301")
         func keys(_ visible: Set<SensorKey>) -> Set<SensorKey> {
