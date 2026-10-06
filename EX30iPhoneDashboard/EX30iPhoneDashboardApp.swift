@@ -10,11 +10,9 @@ struct EX30iPhoneDashboardApp: App {
                 .environmentObject(telemetry)
                 .preferredColorScheme(.dark)
                 .onAppear {
-                    UIApplication.shared.isIdleTimerDisabled = true
                     telemetry.start()
                 }
                 .onDisappear {
-                    UIApplication.shared.isIdleTimerDisabled = false
                     telemetry.stop()
                 }
         }

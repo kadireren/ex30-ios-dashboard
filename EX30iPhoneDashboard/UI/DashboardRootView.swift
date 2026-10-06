@@ -131,7 +131,6 @@ struct DashboardRootView: View {
 
                 if standby {
                     StandbyOverlay {
-                        UIApplication.shared.isIdleTimerDisabled = true
                         telemetry.start()
                         standby = false
                     }
@@ -182,7 +181,6 @@ struct DashboardRootView: View {
     private func enterStandby() {
         settingsVisible = false
         telemetry.stop()
-        UIApplication.shared.isIdleTimerDisabled = false
         standby = true
     }
 }
@@ -279,6 +277,9 @@ private struct SettingsOverlay: View {
                                     }
                                 }
                             }
+                            Divider().overlay(Color.primary.opacity(0.15))
+                            Toggle("VHAL kopunca 4 dk sonra uyku", isOn: $telemetry.sleepAfterVhalDisconnect)
+                                .font(.system(size: 12, design: .rounded))
                         }
                         .frame(maxWidth: .infinity)
                     }

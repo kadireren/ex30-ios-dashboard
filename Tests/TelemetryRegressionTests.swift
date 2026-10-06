@@ -41,31 +41,28 @@ enum TelemetryRegressionTests {
         for response in ["62E301FF", "62E301", "NO DATA", "7F2231"] {
             precondition(OBDDecoder.decode(key: .pedal, response: response) == nil)
         }
-        // BECM 4801 ham → rawSoc; ana .soc = gösterge formülü (OBD), yoksa VHAL.
+        // BECM 4801 ham → rawSoc; ana .soc yalnızca VHAL Bridge (OBD/ham asla düşmez).
         precondition(OBDDecoder.decode(key: .soc, response: "6248019C40") == 80)
         precondition(OBDDecoder.decode(key: .soc, response: "6248010000") == 0)
         precondition(OBDDecoder.decode(key: .soc, response: "624801FFFF") == 131.07)
         var socResolver = TelemetryResolver()
         socResolver.put(.soc, value: 80, source: .obd, now: start)
         precondition(socResolver.value(.rawSoc, now: start) == 80)
-        precondition(socResolver.value(.soc, now: start) == 81.875)
-        // VHAL taze olsa bile OBD gösterge formülü ana ekranı ezmez (95 ham ≠ 97 gösterge).
+        precondition(socResolver.value(.soc, now: start) == nil)
         socResolver.put(.soc, value: 95, source: .obd, now: start)
-        socResolver.put(.soc, value: 95, source: .vhal, now: start)
+        socResolver.put(.soc, value: 83, source: .vhal, now: start)
         socResolver.vhalConnected = true
-        precondition(abs(socResolver.value(.soc, now: start)! - 97.8125) < 0.0001)
+        precondition(socResolver.value(.soc, now: start) == 83)
         precondition(socResolver.value(.rawSoc, now: start) == 95)
-        // OBD yoksa VHAL kullanılır.
         var vhalOnly = TelemetryResolver()
         vhalOnly.put(.soc, value: 83, source: .vhal, now: start)
         vhalOnly.vhalConnected = true
         precondition(vhalOnly.value(.soc, now: start) == 83)
         socResolver.vhalConnected = false
-        precondition(abs(socResolver.value(.soc, now: start)! - 97.8125) < 0.0001)
+        precondition(socResolver.value(.soc, now: start) == 83)
         socResolver.put(.soc, value: 0, source: .obd, now: start)
-        precondition(socResolver.value(.soc, now: start) == 0)
-        socResolver.put(.soc, value: 110, source: .obd, now: start)
-        precondition(socResolver.value(.soc, now: start) == 100)
+        precondition(socResolver.value(.soc, now: start) == 83)
+        precondition(socResolver.value(.rawSoc, now: start) == 0)
         let pedal = OBDDecoder.requests.filter { $0.key == .pedal }
         precondition(pedal.count == 1 && pedal[0].ecu == .vcFront && pedal[0].command == "22E301")
         func keys(_ visible: Set<SensorKey>) -> Set<SensorKey> {

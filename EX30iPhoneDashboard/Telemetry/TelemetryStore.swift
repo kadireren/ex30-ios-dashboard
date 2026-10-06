@@ -1,7 +1,11 @@
 import Foundation
+import UIKit
 
 @MainActor
 final class TelemetryStore: ObservableObject {
+    private static let sleepAfterVhalDisconnectKey = "sleepAfterVhalDisconnect"
+    private static let sleepAfterVhalDisconnectDelay: TimeInterval = 4 * 60
+
     @Published private(set) var obdConnected = false
     @Published private(set) var vhalConnected = false
     @Published private(set) var obdStatus = "OBD hazırlanıyor"
@@ -15,6 +19,13 @@ final class TelemetryStore: ObservableObject {
     @Published var appearance: DashboardAppearance {
         didSet { UserDefaults.standard.set(appearance.rawValue, forKey: "dashboardAppearance") }
     }
+    /// VHAL koptuktan 4 dk sonra ekranın uykuya geçmesine izin ver. Varsayılan: açık.
+    @Published var sleepAfterVhalDisconnect: Bool {
+        didSet {
+            UserDefaults.standard.set(sleepAfterVhalDisconnect, forKey: Self.sleepAfterVhalDisconnectKey)
+            updateIdleTimerPolicy()
+        }
+    }
     @Published private(set) var resolver = TelemetryResolver()
     @Published var visibleSensors: Set<SensorKey> {
         didSet {
@@ -27,6 +38,7 @@ final class TelemetryStore: ObservableObject {
     private var vhal: VHALPeripheral?
     private var started = false
     private var freshnessTimer: Timer?
+    private var sleepAfterDisconnectTimer: Timer?
     private var activePage: DashboardPage = .main
     private var lastKnownValues: [SensorKey: Double] = [:]
 
@@ -44,6 +56,12 @@ final class TelemetryStore: ObservableObject {
     init() {
         style = DashboardStyle(rawValue: UserDefaults.standard.integer(forKey: "dashboardStyle")) ?? .minimal
         appearance = DashboardAppearance(rawValue: UserDefaults.standard.integer(forKey: "dashboardAppearance")) ?? .system
+        if UserDefaults.standard.object(forKey: Self.sleepAfterVhalDisconnectKey) == nil {
+            sleepAfterVhalDisconnect = true
+            UserDefaults.standard.set(true, forKey: Self.sleepAfterVhalDisconnectKey)
+        } else {
+            sleepAfterVhalDisconnect = UserDefaults.standard.bool(forKey: Self.sleepAfterVhalDisconnectKey)
+        }
         if let saved = UserDefaults.standard.stringArray(forKey: "visibleSensors") {
             var restored = Set(saved.compactMap(SensorKey.init(rawValue:)))
             if UserDefaults.standard.integer(forKey: "visibleSensorsVersion") < 1 {
@@ -91,16 +109,20 @@ final class TelemetryStore: ObservableObject {
                     self?.resolver.vhalConnected = connected
                     self?.vhalConnected = connected
                     self?.vhalStatus = message
+                    self?.updateIdleTimerPolicy()
                 }
             })
         updateSensorSelection()
         obd?.start()
         vhal?.start()
+        updateIdleTimerPolicy()
     }
 
     func stop() {
         freshnessTimer?.invalidate()
         freshnessTimer = nil
+        sleepAfterDisconnectTimer?.invalidate()
+        sleepAfterDisconnectTimer = nil
         resolver.vhalConnected = false
         obd?.stop()
         vhal?.stop()
@@ -111,6 +133,32 @@ final class TelemetryStore: ObservableObject {
         obdStatus = "OBD durduruldu"
         vhalStatus = "VHAL durduruldu"
         started = false
+        UIApplication.shared.isIdleTimerDisabled = false
+    }
+
+    /// VHAL bağlıyken veya özellik kapalıyken ekranı uyanık tut;
+    /// özellik açıkken bağlantı koptuktan 4 dk sonra uykuya izin ver.
+    private func updateIdleTimerPolicy() {
+        sleepAfterDisconnectTimer?.invalidate()
+        sleepAfterDisconnectTimer = nil
+        guard started else {
+            UIApplication.shared.isIdleTimerDisabled = false
+            return
+        }
+        if vhalConnected || !sleepAfterVhalDisconnect {
+            UIApplication.shared.isIdleTimerDisabled = true
+            return
+        }
+        UIApplication.shared.isIdleTimerDisabled = true
+        sleepAfterDisconnectTimer = Timer.scheduledTimer(
+            withTimeInterval: Self.sleepAfterVhalDisconnectDelay,
+            repeats: false
+        ) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, self.started, !self.vhalConnected, self.sleepAfterVhalDisconnect else { return }
+                UIApplication.shared.isIdleTimerDisabled = false
+            }
+        }
     }
 
     func value(_ key: SensorKey) -> Double? {
