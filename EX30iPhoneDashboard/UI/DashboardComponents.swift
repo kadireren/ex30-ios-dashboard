@@ -52,7 +52,7 @@ enum InstantConsumptionDisplay {
     }
 }
 
-/// Sport temaları: yarım halka + ortalanmış değer; birim değerin altında (çakışmasız).
+/// Sport temaları: yarım halka + değer (açık ağızda); birim değerin altında (çakışmasız).
 struct InstantConsumptionRing: View {
     let kwh100: Double?
     let color: Color
@@ -61,24 +61,27 @@ struct InstantConsumptionRing: View {
     var valueFontSize: CGFloat = 22
     var unitFontSize: CGFloat = 12
 
+    private var halfHeight: CGFloat { diameter * 0.56 }
+
     var body: some View {
-        let clipHeight = diameter * 0.58
-        VStack(spacing: 4) {
-            ZStack {
+        VStack(spacing: 3) {
+            ZStack(alignment: .bottom) {
                 RingGauge(progress: abs(kwh100 ?? 0) / 99.9, color: color, width: ringWidth)
-                    .rotationEffect(.degrees(40))
                     .frame(width: diameter, height: diameter)
+                    .rotationEffect(.degrees(40))
+                    .frame(width: diameter, height: halfHeight, alignment: .top)
+                    .clipped()
+
                 Text(InstantConsumptionDisplay.valueText(kwh100))
                     .font(.system(size: valueFontSize, weight: .bold, design: .rounded))
                     .foregroundStyle(color)
                     .monospacedDigit()
                     .minimumScaleFactor(0.7)
                     .lineLimit(1)
-                    .offset(y: clipHeight * 0.12)
+                    .padding(.bottom, halfHeight * 0.08)
                     .animation(.easeOut(duration: 0.14), value: kwh100)
             }
-            .frame(width: diameter, height: clipHeight, alignment: .top)
-            .clipped()
+            .frame(width: diameter, height: halfHeight)
 
             Text(InstantConsumptionDisplay.unit)
                 .font(.system(size: unitFontSize, weight: .medium, design: .rounded))

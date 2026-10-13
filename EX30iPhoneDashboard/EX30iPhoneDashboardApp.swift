@@ -8,7 +8,6 @@ struct EX30iPhoneDashboardApp: App {
         WindowGroup {
             DashboardRootView()
                 .environmentObject(telemetry)
-                .preferredColorScheme(.dark)
                 .onAppear {
                     telemetry.start()
                 }
