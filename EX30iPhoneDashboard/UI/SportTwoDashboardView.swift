@@ -20,17 +20,23 @@ struct SportTwoDashboardView: View {
                     .frame(width: 205)
                 }
                 if telemetry.visibleSensors.contains(.power) {
-                    ZStack {
-                        RingGauge(progress: abs(displayedPower ?? 0) / 99.9,
-                                  color: (displayedPower ?? 0) < 0 ? .cyan : Color(red: 1, green: 0.38, blue: 0.2), width: 14)
-                            .frame(width: 220, height: 135)
-                            .rotationEffect(.degrees(40))
-                        Text(InstantConsumptionDisplay.powerSlotLabel(telemetry.rawInstantKwhPer100Km))
-                            .font(.system(size: 21, weight: .bold, design: .rounded))
-                            .foregroundStyle((displayedPower ?? 0) < 0 ? .cyan : Color(red: 1, green: 0.38, blue: 0.2))
-                            .monospacedDigit()
-                            .offset(y: 18)
-                            .animation(.easeOut(duration: 0.14), value: telemetry.rawInstantKwhPer100Km)
+                    let consumptionColor = (displayedPower ?? 0) < 0 ? Color.cyan : Color(red: 1, green: 0.38, blue: 0.2)
+                    VStack(spacing: 3) {
+                        ZStack {
+                            RingGauge(progress: abs(displayedPower ?? 0) / 99.9,
+                                      color: consumptionColor, width: 14)
+                                .rotationEffect(.degrees(40))
+                            Text(InstantConsumptionDisplay.valueText(telemetry.rawInstantKwhPer100Km))
+                                .font(.system(size: 21, weight: .bold, design: .rounded))
+                                .foregroundStyle(consumptionColor)
+                                .monospacedDigit()
+                                .offset(y: 18)
+                                .animation(.easeOut(duration: 0.14), value: telemetry.rawInstantKwhPer100Km)
+                        }
+                        .frame(width: 220, height: 135)
+                        Text(InstantConsumptionDisplay.unit)
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                            .foregroundStyle(consumptionColor.opacity(0.75))
                     }
                     .frame(width: 220)
                 }

@@ -27,12 +27,17 @@ struct MinimalDashboardView: View {
                 .font(.system(size: 11, weight: .semibold))
                 .frame(maxWidth: 610)
                 .padding(.top, 7)
-                Text(InstantConsumptionDisplay.powerSlotLabel(telemetry.rawInstantKwhPer100Km))
-                    .font(.system(size: 24, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Color(red: 0.84, green: 0.66, blue: 0.29))
-                    .monospacedDigit()
-                    .padding(.top, 8)
-                    .animation(.easeOut(duration: 0.14), value: telemetry.rawInstantKwhPer100Km)
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(InstantConsumptionDisplay.valueText(telemetry.rawInstantKwhPer100Km))
+                        .font(.system(size: 24, weight: .semibold, design: .rounded))
+                        .monospacedDigit()
+                    Text(InstantConsumptionDisplay.unit)
+                        .font(.system(size: 14, weight: .medium, design: .rounded))
+                        .foregroundStyle(Color(red: 0.84, green: 0.66, blue: 0.29).opacity(0.75))
+                }
+                .foregroundStyle(Color(red: 0.84, green: 0.66, blue: 0.29))
+                .padding(.top, 8)
+                .animation(.easeOut(duration: 0.14), value: telemetry.rawInstantKwhPer100Km)
             }
             Spacer()
             HStack {

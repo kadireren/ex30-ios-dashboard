@@ -34,16 +34,24 @@ struct SportOneDashboardView: View {
                 }
                 Spacer()
                 if telemetry.visibleSensors.contains(.power) {
-                    RingGauge(progress: abs(displayedPower ?? 0) / 99.9,
-                              color: (displayedPower ?? 0) < 0 ? .cyan : Color(red: 1, green: 0.38, blue: 0.2), width: 15)
+                    let consumptionColor = (displayedPower ?? 0) < 0 ? Color.cyan : Color(red: 1, green: 0.38, blue: 0.2)
+                    VStack(spacing: 4) {
+                        ZStack {
+                            RingGauge(progress: abs(displayedPower ?? 0) / 99.9,
+                                      color: consumptionColor, width: 15)
+                                .rotationEffect(.degrees(40))
+                            Text(InstantConsumptionDisplay.valueText(telemetry.rawInstantKwhPer100Km))
+                                .font(.system(size: 23, weight: .bold, design: .rounded))
+                                .foregroundStyle(consumptionColor)
+                                .monospacedDigit()
+                                .offset(y: -48)
+                                .animation(.easeOut(duration: 0.14), value: telemetry.rawInstantKwhPer100Km)
+                        }
                         .frame(width: 260, height: 125)
-                        .rotationEffect(.degrees(40))
-                    Text(InstantConsumptionDisplay.powerSlotLabel(telemetry.rawInstantKwhPer100Km))
-                        .font(.system(size: 23, weight: .bold, design: .rounded))
-                        .foregroundStyle((displayedPower ?? 0) < 0 ? .cyan : Color(red: 1, green: 0.38, blue: 0.2))
-                        .monospacedDigit()
-                        .offset(y: -48)
-                        .animation(.easeOut(duration: 0.14), value: telemetry.rawInstantKwhPer100Km)
+                        Text(InstantConsumptionDisplay.unit)
+                            .font(.system(size: 13, weight: .medium, design: .rounded))
+                            .foregroundStyle(consumptionColor.opacity(0.75))
+                    }
                 }
                 FooterMetrics(soc: telemetry.value(.soc), odometer: telemetry.value(.odometer),
                               range: telemetry.value(.range), visibleSensors: telemetry.visibleSensors)

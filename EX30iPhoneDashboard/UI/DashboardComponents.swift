@@ -39,10 +39,16 @@ struct RingGauge: View {
 }
 
 enum InstantConsumptionDisplay {
+    static let unit = "kWh/100 km"
+
+    static func valueText(_ kwh100: Double?) -> String {
+        guard let kwh100, kwh100.isFinite else { return "--" }
+        return String(format: "%+.1f", kwh100.clamped(-99.9...99.9))
+    }
+
     /// Eski kW sayı slotu: aynı satırda ham anlık tüketim + birim.
     static func powerSlotLabel(_ kwh100: Double?) -> String {
-        guard let kwh100, kwh100.isFinite else { return "-- kWh/100 km" }
-        return String(format: "%+.1f kWh/100 km", kwh100.clamped(-99.9...99.9))
+        "\(valueText(kwh100)) \(unit)"
     }
 }
 
