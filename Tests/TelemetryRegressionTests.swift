@@ -41,28 +41,30 @@ enum TelemetryRegressionTests {
         for response in ["62E301FF", "62E301", "NO DATA", "7F2231"] {
             precondition(OBDDecoder.decode(key: .pedal, response: response) == nil)
         }
-        // BECM 4801 ham → rawSoc; ana .soc yalnızca VHAL Bridge (OBD/ham asla düşmez).
+        // BECM 4801 ham → rawSoc; ana .soc = CrowPanel gösterge formülü (OBD), VHAL energy% ezmez.
         precondition(OBDDecoder.decode(key: .soc, response: "6248019C40") == 80)
         precondition(OBDDecoder.decode(key: .soc, response: "6248010000") == 0)
         precondition(OBDDecoder.decode(key: .soc, response: "624801FFFF") == 131.07)
         var socResolver = TelemetryResolver()
         socResolver.put(.soc, value: 80, source: .obd, now: start)
         precondition(socResolver.value(.rawSoc, now: start) == 80)
-        precondition(socResolver.value(.soc, now: start) == nil)
+        precondition(socResolver.value(.soc, now: start) == 81.875)
+        // VHAL taze olsa bile OBD gösterge formülü ana ekranı ezmez (95 ham → ~97.8, VHAL 93 değil).
         socResolver.put(.soc, value: 95, source: .obd, now: start)
-        socResolver.put(.soc, value: 83, source: .vhal, now: start)
+        socResolver.put(.soc, value: 93, source: .vhal, now: start)
         socResolver.vhalConnected = true
-        precondition(socResolver.value(.soc, now: start) == 83)
+        precondition(abs(socResolver.value(.soc, now: start)! - 97.8125) < 0.0001)
         precondition(socResolver.value(.rawSoc, now: start) == 95)
         var vhalOnly = TelemetryResolver()
         vhalOnly.put(.soc, value: 83, source: .vhal, now: start)
         vhalOnly.vhalConnected = true
         precondition(vhalOnly.value(.soc, now: start) == 83)
         socResolver.vhalConnected = false
-        precondition(socResolver.value(.soc, now: start) == 83)
+        precondition(abs(socResolver.value(.soc, now: start)! - 97.8125) < 0.0001)
         socResolver.put(.soc, value: 0, source: .obd, now: start)
-        precondition(socResolver.value(.soc, now: start) == 83)
-        precondition(socResolver.value(.rawSoc, now: start) == 0)
+        precondition(socResolver.value(.soc, now: start) == 0)
+        socResolver.put(.soc, value: 110, source: .obd, now: start)
+        precondition(socResolver.value(.soc, now: start) == 100)
         let pedal = OBDDecoder.requests.filter { $0.key == .pedal }
         precondition(pedal.count == 1 && pedal[0].ecu == .vcFront && pedal[0].command == "22E301")
         func keys(_ visible: Set<SensorKey>) -> Set<SensorKey> {
@@ -92,9 +94,23 @@ enum TelemetryRegressionTests {
         precondition(keys(selected(.performance)) == [.pedal, .rpm, .torque, .motorTemp, .iemCoolantTemp])
         precondition(keys(selected(.battery)) == [.soc, .hvCurrent, .hvVoltage, .batteryTemp, .batteryTempMax, .soh, .cellMaxVoltage, .cellMinVoltage, .cellMinSoc])
         precondition(keys(selected(.technical)) == [.odometer, .supply12v, .coolingValveActual, .coolingValveRequested, .chargePowerLimit, .dischargePowerLimit])
-        precondition(DashboardSensorSelection.active(page: .main, style: .minimal, visible: [.pedal]) == [.outsideTemp])
+        precondition(DashboardSensorSelection.active(page: .main, style: .minimal, visible: [.pedal]) == [.outsideTemp, .gear])
         precondition(VHALSubscription.packet(visibleSensors: selected(.performance)) == Data([0xE3, 0x30, 1, 1, 0]))
-        precondition(VHALSubscription.packet(visibleSensors: selected(.main)) == Data([0xE3, 0x30, 1, 1, 5, 1, 3, 4, 5, 10]))
+        precondition(VHALSubscription.packet(visibleSensors: selected(.main)) == Data([0xE3, 0x30, 1, 1, 6, 1, 3, 4, 5, 6, 10]))
+        let v168 = Ex30Calculations.calculateInstantKwh100Signed(signedPowerKw: 168, speedKmh: 50)
+        precondition(v168 != nil && abs(v168! - 160) < 0.01)
+        precondition(Ex30Calculations.calculateInstantKwh100Signed(signedPowerKw: 50, speedKmh: 2.9) == nil)
+        precondition(Ex30Calculations.formatInstantKwh100(51.2) == "51.2")
+        precondition(Ex30Calculations.formatInstantKwh100(nil) == "--")
+        precondition(Ex30Calculations.gearLabel(from: 4) == "P")
+        var instantPipe = RawInstantConsumptionPipeline()
+        let t0 = start
+        instantPipe.acceptSpeed(100, now: t0)
+        instantPipe.acceptPower(50, now: t0)
+        instantPipe.update(gearLabel: "D", now: t0)
+        precondition(abs(instantPipe.displayKwh100! - 50) < 0.001)
+        instantPipe.update(gearLabel: "P", now: t0.addingTimeInterval(1))
+        precondition(instantPipe.displayKwh100 == 0)
         print("Telemetry regression checks passed")
     }
 }

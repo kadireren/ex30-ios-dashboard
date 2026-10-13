@@ -27,6 +27,8 @@ final class TelemetryStore: ObservableObject {
         }
     }
     @Published private(set) var resolver = TelemetryResolver()
+    /// Android `instantKwhPer100KmRaw` (±99.9, P viteste 0).
+    @Published private(set) var rawInstantKwhPer100Km: Double?
     @Published var visibleSensors: Set<SensorKey> {
         didSet {
             UserDefaults.standard.set(visibleSensors.map(\.rawValue), forKey: "visibleSensors")
@@ -41,6 +43,7 @@ final class TelemetryStore: ObservableObject {
     private var sleepAfterDisconnectTimer: Timer?
     private var activePage: DashboardPage = .main
     private var lastKnownValues: [SensorKey: Double] = [:]
+    private var rawInstantPipeline = RawInstantConsumptionPipeline()
 
     func setActivePage(_ page: DashboardPage) {
         activePage = page
@@ -88,7 +91,10 @@ final class TelemetryStore: ObservableObject {
         started = true
         // Re-evaluate source selection even when VHAL silently stops sending.
         freshnessTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.objectWillChange.send() }
+            Task { @MainActor in
+                self?.syncRawInstantConsumption()
+                self?.objectWillChange.send()
+            }
         }
         obd = OBDCentral(
             onValue: { [weak self] key, value in
@@ -165,8 +171,8 @@ final class TelemetryStore: ObservableObject {
         resolver.value(key) ?? lastKnownValues[key]
     }
 
-    private func put(_ key: SensorKey, value: Double, source: TelemetrySource) {
-        resolver.put(key, value: value, source: source)
+    private func put(_ key: SensorKey, value: Double, source: TelemetrySource, now: Date = Date()) {
+        resolver.put(key, value: value, source: source, now: now)
 
         // Never blank a sensor between its scheduled polls. Cache every value the
         // resolver can currently produce, including derived power values.
@@ -175,5 +181,28 @@ final class TelemetryStore: ObservableObject {
                 lastKnownValues[sensor] = resolved
             }
         }
+        feedRawInstantInputs(changed: key, now: now)
+        syncRawInstantConsumption(now: now)
+    }
+
+    private func feedRawInstantInputs(changed key: SensorKey, now: Date) {
+        switch key {
+        case .speed:
+            if let speed = value(.speed) { rawInstantPipeline.acceptSpeed(speed, now: now) }
+        case .power:
+            if let power = value(.power) { rawInstantPipeline.acceptPower(power, now: now) }
+        case .hvCurrent, .hvVoltage:
+            if key == .hvCurrent || key == .hvVoltage, value(.power) != nil {
+                if let power = value(.power) { rawInstantPipeline.acceptPower(power, now: now) }
+            }
+        default:
+            break
+        }
+    }
+
+    private func syncRawInstantConsumption(now: Date = Date()) {
+        let gear = Ex30Calculations.gearLabel(from: value(.gear))
+        rawInstantPipeline.update(gearLabel: gear, now: now)
+        rawInstantKwhPer100Km = rawInstantPipeline.displayKwh100
     }
 }

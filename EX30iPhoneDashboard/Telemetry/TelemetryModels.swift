@@ -23,7 +23,11 @@ enum DashboardSensorSelection {
         }
         var active = displayed.intersection(visible)
         // Header sıcaklığı ana ekranda her zaman abone olsun (toggle'dan bağımsız).
-        if page == .main { active.insert(.outsideTemp) }
+        if page == .main {
+            active.insert(.outsideTemp)
+            // P viteste ham anlık tüketim sıfırı (Android updateInstantConsumption).
+            active.insert(.gear)
+        }
         return active
     }
 }

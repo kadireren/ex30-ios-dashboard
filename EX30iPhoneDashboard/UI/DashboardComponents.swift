@@ -38,6 +38,14 @@ struct RingGauge: View {
     }
 }
 
+enum InstantConsumptionDisplay {
+    /// Eski kW sayı slotu: aynı satırda ham anlık tüketim + birim.
+    static func powerSlotLabel(_ kwh100: Double?) -> String {
+        guard let kwh100, kwh100.isFinite else { return "-- kWh/100 km" }
+        return String(format: "%+.1f kWh/100 km", kwh100.clamped(-99.9...99.9))
+    }
+}
+
 enum MainFooterMetricStyle {
     static let socRangeText = Font.system(size: 19, weight: .medium, design: .rounded)
     static let odoValue = Font.system(size: 19, weight: .medium, design: .rounded)

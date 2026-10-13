@@ -76,6 +76,7 @@ Bluetooth gerektirmeyen kaynak gecisi, deger koruma ve pedal decoder regresyonla
 ```sh
 swiftc EX30iPhoneDashboard/Telemetry/TelemetryModels.swift \
   EX30iPhoneDashboard/Telemetry/TelemetryResolver.swift \
+  EX30iPhoneDashboard/Telemetry/Ex30Calculations.swift \
   EX30iPhoneDashboard/Telemetry/OBDDecoder.swift \
   Tests/TelemetryRegressionTests.swift -o /tmp/ex30-telemetry-tests
 /tmp/ex30-telemetry-tests

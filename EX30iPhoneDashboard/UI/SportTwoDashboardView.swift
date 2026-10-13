@@ -25,10 +25,12 @@ struct SportTwoDashboardView: View {
                                   color: (displayedPower ?? 0) < 0 ? .cyan : Color(red: 1, green: 0.38, blue: 0.2), width: 14)
                             .frame(width: 220, height: 135)
                             .rotationEffect(.degrees(40))
-                        Text(displayedPower.map { String(format: "%+.1f kW", $0) } ?? "-- kW")
+                        Text(InstantConsumptionDisplay.powerSlotLabel(telemetry.rawInstantKwhPer100Km))
                             .font(.system(size: 21, weight: .bold, design: .rounded))
                             .foregroundStyle((displayedPower ?? 0) < 0 ? .cyan : Color(red: 1, green: 0.38, blue: 0.2))
+                            .monospacedDigit()
                             .offset(y: 18)
+                            .animation(.easeOut(duration: 0.14), value: telemetry.rawInstantKwhPer100Km)
                     }
                     .frame(width: 220)
                 }

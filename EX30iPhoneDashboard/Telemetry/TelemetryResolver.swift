@@ -16,7 +16,8 @@ struct TelemetryResolver {
     }
 
     func value(_ key: SensorKey, now: Date = Date()) -> Double? {
-        // .soc yalnızca VHAL Bridge; OBD/ham (BECM 4801) asla ana göstergeye düşmesin.
+        // .soc = head-unit gösterge % (CrowPanel): OBD BECM 4801 × 1.0625 − 3.125.
+        // VHAL soc = energy/capacity (~93); araç ana ekranı (~95) ile aynı değil — ezmesin.
         if key != .soc && key != .rawSoc,
            vhalConnected, let reading = vhal[key], reading.isFresh(maxAge: 3, now: now) {
             return reading.value
@@ -24,6 +25,9 @@ struct TelemetryResolver {
 
         if key == .rawSoc { return obd[.soc]?.value }
         if key == .soc {
+            if let raw = obd[.soc]?.value {
+                return min(max(raw * 1.0625 - 3.125, 0), 100)
+            }
             if vhalConnected, let reading = vhal[.soc], reading.isFresh(maxAge: 3, now: now) {
                 return reading.value
             }

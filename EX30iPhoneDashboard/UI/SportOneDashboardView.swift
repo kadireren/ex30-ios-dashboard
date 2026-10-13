@@ -38,10 +38,12 @@ struct SportOneDashboardView: View {
                               color: (displayedPower ?? 0) < 0 ? .cyan : Color(red: 1, green: 0.38, blue: 0.2), width: 15)
                         .frame(width: 260, height: 125)
                         .rotationEffect(.degrees(40))
-                    Text(displayedPower.map { String(format: "%+.1f kW", $0) } ?? "-- kW")
+                    Text(InstantConsumptionDisplay.powerSlotLabel(telemetry.rawInstantKwhPer100Km))
                         .font(.system(size: 23, weight: .bold, design: .rounded))
                         .foregroundStyle((displayedPower ?? 0) < 0 ? .cyan : Color(red: 1, green: 0.38, blue: 0.2))
+                        .monospacedDigit()
                         .offset(y: -48)
+                        .animation(.easeOut(duration: 0.14), value: telemetry.rawInstantKwhPer100Km)
                 }
                 FooterMetrics(soc: telemetry.value(.soc), odometer: telemetry.value(.odometer),
                               range: telemetry.value(.range), visibleSensors: telemetry.visibleSensors)

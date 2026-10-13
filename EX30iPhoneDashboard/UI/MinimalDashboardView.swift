@@ -27,10 +27,12 @@ struct MinimalDashboardView: View {
                 .font(.system(size: 11, weight: .semibold))
                 .frame(maxWidth: 610)
                 .padding(.top, 7)
-                Text(displayedPower.map { String(format: "%+.1f kW", $0) } ?? "-- kW")
+                Text(InstantConsumptionDisplay.powerSlotLabel(telemetry.rawInstantKwhPer100Km))
                     .font(.system(size: 24, weight: .semibold, design: .rounded))
                     .foregroundStyle(Color(red: 0.84, green: 0.66, blue: 0.29))
+                    .monospacedDigit()
                     .padding(.top, 8)
+                    .animation(.easeOut(duration: 0.14), value: telemetry.rawInstantKwhPer100Km)
             }
             Spacer()
             HStack {
