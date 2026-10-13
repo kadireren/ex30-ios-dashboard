@@ -2,7 +2,6 @@ import SwiftUI
 
 struct SportOneDashboardView: View {
     @EnvironmentObject private var telemetry: TelemetryStore
-    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         let torque = telemetry.value(.torque)
