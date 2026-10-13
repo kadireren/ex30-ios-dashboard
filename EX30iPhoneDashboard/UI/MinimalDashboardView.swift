@@ -7,7 +7,7 @@ struct MinimalDashboardView: View {
         let speed = telemetry.value(.speed)
         let displayedInstant = telemetry.displayInstantKwhPer100Km
         GeometryReader { geometry in
-            let contentWidth = min(610, geometry.size.width * 0.78)
+            let edgePad: CGFloat = 8
             let speedSize = min(92, max(64, geometry.size.height * 0.28))
             let valueSize = min(28, max(20, geometry.size.height * 0.085))
             VStack(spacing: 0) {
@@ -48,8 +48,8 @@ struct MinimalDashboardView: View {
                             .foregroundStyle(Color(red: 0.84, green: 0.66, blue: 0.29).opacity(0.75))
                             .padding(.top, 2)
                     }
-                    .frame(maxWidth: contentWidth)
                     .frame(maxWidth: .infinity)
+                    .padding(.horizontal, edgePad)
                 }
                 Spacer(minLength: 6)
                 HStack {
@@ -82,7 +82,7 @@ struct MinimalDashboardView: View {
                             .minimumScaleFactor(0.85)
                     }
                 }
-                .padding(.horizontal, 28)
+                .padding(.horizontal, edgePad)
                 .padding(.bottom, 2)
             }
             .frame(width: geometry.size.width, height: geometry.size.height)

@@ -11,7 +11,6 @@ struct DashboardRootView: View {
     var body: some View {
         GeometryReader { geometry in
             let contentTop = max(geometry.safeAreaInsets.top, 8) + 52
-            let horizontalInset = max(geometry.safeAreaInsets.leading, geometry.safeAreaInsets.trailing)
             // Sol (saat+sıcaklık) ve sağ (power) kolonları eşit genişlikte tut; ortadaki rozetlerle çakışmayı önler.
             let headerSideWidth: CGFloat = 118
             ZStack {
@@ -31,7 +30,9 @@ struct DashboardRootView: View {
                 .environmentObject(telemetry)
                 .padding(.top, contentTop)
                 .padding(.bottom, 18)
-                .padding(.horizontal, horizontalInset)
+                // Notch / home indicator only — not symmetric decorative gutters.
+                .padding(.leading, geometry.safeAreaInsets.leading)
+                .padding(.trailing, geometry.safeAreaInsets.trailing)
                 .contentShape(Rectangle())
                 .gesture(
                     DragGesture(minimumDistance: 35)

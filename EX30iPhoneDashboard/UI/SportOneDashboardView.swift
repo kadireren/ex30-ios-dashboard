@@ -9,12 +9,14 @@ struct SportOneDashboardView: View {
         let speed = telemetry.value(.speed)
         let displayedInstant = telemetry.displayInstantKwhPer100Km
         GeometryReader { geometry in
-            let sideWidth = min(190, max(140, geometry.size.width * 0.23))
-            let sideHeight = min(geometry.size.height * 0.88, sideWidth * 1.2)
+            let edgePad: CGFloat = 4
+            let colGap: CGFloat = 6
+            let sideWidth = min(230, max(150, geometry.size.width * 0.27))
+            let sideHeight = min(geometry.size.height * 0.92, sideWidth * 1.25)
             let speedSize = min(82, max(52, geometry.size.height * 0.26))
-            let ringDiameter = min(260, max(160, geometry.size.width * 0.30),
-                                   geometry.size.height * 0.72)
-            HStack(alignment: .center, spacing: 8) {
+            let centerWidth = max(160, geometry.size.width - sideWidth * 2 - colGap * 2 - edgePad * 2)
+            let ringDiameter = min(centerWidth * 0.92, geometry.size.height * 0.78, max(160, geometry.size.width * 0.34))
+            HStack(alignment: .center, spacing: colGap) {
                 if telemetry.visibleSensors.contains(.torque) {
                     SportCard(title: "ERAD TORQUE", value: torque, unit: "Nm", color: .orange,
                               progress: abs(torque ?? 0) / 400, ring: true,
@@ -47,7 +49,7 @@ struct SportOneDashboardView: View {
                     Spacer(minLength: 4)
                     FooterMetrics(soc: telemetry.value(.soc), odometer: telemetry.value(.odometer),
                                   range: telemetry.value(.range), visibleSensors: telemetry.visibleSensors)
-                        .padding(.horizontal, 8)
+                        .padding(.horizontal, 4)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 if telemetry.visibleSensors.contains(.mechanicalPower) {
@@ -57,7 +59,7 @@ struct SportOneDashboardView: View {
                               width: sideWidth, height: sideHeight)
                 }
             }
-            .padding(.horizontal, 10)
+            .padding(.horizontal, edgePad)
             .padding(.vertical, 4)
             .frame(width: geometry.size.width, height: geometry.size.height)
         }

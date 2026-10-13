@@ -9,14 +9,15 @@ struct SportTwoDashboardView: View {
         let hp = telemetry.value(.mechanicalPower)
         let displayedInstant = telemetry.displayInstantKwhPer100Km
         GeometryReader { geometry in
-            let colGap: CGFloat = 12
-            let usableWidth = geometry.size.width - colGap * 2
-            let speedCol = usableWidth * 0.26
+            let edgePad: CGFloat = 4
+            let colGap: CGFloat = 8
+            let usableWidth = geometry.size.width - edgePad * 2 - colGap * 2
+            let speedCol = usableWidth * 0.24
             let ringCol = usableWidth * 0.36
-            let cardCol = usableWidth * 0.38
+            let cardCol = usableWidth * 0.40
             let speedSize = min(88, max(52, geometry.size.height * 0.32))
-            let ringDiameter = min(ringCol, geometry.size.height * 0.62)
-            let cardHeight = min(92, max(70, (geometry.size.height - 36) * 0.38))
+            let ringDiameter = min(ringCol * 0.98, geometry.size.height * 0.68)
+            let cardHeight = min(96, max(72, (geometry.size.height - 28) * 0.40))
             VStack(spacing: 0) {
                 HStack(alignment: .center, spacing: colGap) {
                     if telemetry.visibleSensors.contains(.speed) {
@@ -60,10 +61,11 @@ struct SportTwoDashboardView: View {
                     }
                     .frame(width: cardCol)
                 }
+                .padding(.horizontal, edgePad)
                 .frame(maxHeight: .infinity)
                 FooterMetrics(soc: telemetry.value(.soc), odometer: telemetry.value(.odometer),
                               range: telemetry.value(.range), visibleSensors: telemetry.visibleSensors)
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, edgePad)
                     .padding(.bottom, 2)
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
