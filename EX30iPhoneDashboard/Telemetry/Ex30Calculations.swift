@@ -1,6 +1,6 @@
 import Foundation
 
-private extension Double {
+extension Double {
     func clamped(_ limits: ClosedRange<Double>) -> Double {
         min(max(self, limits.lowerBound), limits.upperBound)
     }

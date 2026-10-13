@@ -43,7 +43,7 @@ enum InstantConsumptionDisplay {
 
     static func valueText(_ kwh100: Double?) -> String {
         guard let kwh100, kwh100.isFinite else { return "--" }
-        return String(format: "%+.1f", kwh100.clamped(-99.9...99.9))
+        return String(format: "%+.1f", min(max(kwh100, -99.9), 99.9))
     }
 
     /// Eski kW sayı slotu: aynı satırda ham anlık tüketim + birim.
@@ -95,11 +95,5 @@ struct FooterMetrics: View {
                     .minimumScaleFactor(0.85)
             }
         }
-    }
-}
-
-extension Double {
-    func clamped(_ limits: ClosedRange<Double>) -> Double {
-        min(max(self, limits.lowerBound), limits.upperBound)
     }
 }
