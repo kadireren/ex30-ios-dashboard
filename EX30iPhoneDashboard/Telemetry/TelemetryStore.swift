@@ -199,14 +199,16 @@ final class TelemetryStore: ObservableObject {
 
     private func feedRawInstantInputs(changed key: SensorKey, now: Date) {
         guard !demoMode else { return }
-        let live: (SensorKey) -> Double? = { resolver.value($0) ?? lastKnownValues[$0] }
+        let live: (SensorKey) -> Double? = { [resolver, lastKnownValues] key in
+            resolver.value(key) ?? lastKnownValues[key]
+        }
         switch key {
         case .speed:
             if let speed = live(.speed) { rawInstantPipeline.acceptSpeed(speed, now: now) }
         case .power:
             if let power = live(.power) { rawInstantPipeline.acceptPower(power, now: now) }
         case .hvCurrent, .hvVoltage:
-            if live(.power) != nil, let power = live(.power) {
+            if let power = live(.power) {
                 rawInstantPipeline.acceptPower(power, now: now)
             }
         default:
