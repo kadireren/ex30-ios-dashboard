@@ -4,6 +4,7 @@ import UIKit
 @MainActor
 final class TelemetryStore: ObservableObject {
     private static let sleepAfterVhalDisconnectKey = "sleepAfterVhalDisconnect"
+    private static let demoModeKey = "demoMode"
     private static let sleepAfterVhalDisconnectDelay: TimeInterval = 4 * 60
 
     @Published private(set) var obdConnected = false
@@ -26,6 +27,10 @@ final class TelemetryStore: ObservableObject {
             updateIdleTimerPolicy()
         }
     }
+    /// Canlı OBD/VHAL olmadan UI önizlemesi için kurgusal sensör değerleri.
+    @Published var demoMode: Bool {
+        didSet { UserDefaults.standard.set(demoMode, forKey: Self.demoModeKey) }
+    }
     @Published private(set) var resolver = TelemetryResolver()
     /// Android `instantKwhPer100KmRaw` (±99.9, P viteste 0).
     @Published private(set) var rawInstantKwhPer100Km: Double?
@@ -34,6 +39,11 @@ final class TelemetryStore: ObservableObject {
             UserDefaults.standard.set(visibleSensors.map(\.rawValue), forKey: "visibleSensors")
             updateSensorSelection()
         }
+    }
+
+    /// Demo açıksa kurgusal anlık tüketim; aksi halde gerçek pipeline.
+    var displayInstantKwhPer100Km: Double? {
+        demoMode ? DemoTelemetry.instantKwhPer100Km() : rawInstantKwhPer100Km
     }
 
     private var obd: OBDCentral?
@@ -59,6 +69,7 @@ final class TelemetryStore: ObservableObject {
     init() {
         style = DashboardStyle(rawValue: UserDefaults.standard.integer(forKey: "dashboardStyle")) ?? .minimal
         appearance = DashboardAppearance(rawValue: UserDefaults.standard.integer(forKey: "dashboardAppearance")) ?? .system
+        demoMode = UserDefaults.standard.bool(forKey: Self.demoModeKey)
         if UserDefaults.standard.object(forKey: Self.sleepAfterVhalDisconnectKey) == nil {
             sleepAfterVhalDisconnect = true
             UserDefaults.standard.set(true, forKey: Self.sleepAfterVhalDisconnectKey)
@@ -168,7 +179,8 @@ final class TelemetryStore: ObservableObject {
     }
 
     func value(_ key: SensorKey) -> Double? {
-        resolver.value(key) ?? lastKnownValues[key]
+        if demoMode { return DemoTelemetry.value(for: key) }
+        return resolver.value(key) ?? lastKnownValues[key]
     }
 
     private func put(_ key: SensorKey, value: Double, source: TelemetrySource, now: Date = Date()) {
@@ -186,14 +198,16 @@ final class TelemetryStore: ObservableObject {
     }
 
     private func feedRawInstantInputs(changed key: SensorKey, now: Date) {
+        guard !demoMode else { return }
+        let live: (SensorKey) -> Double? = { resolver.value($0) ?? lastKnownValues[$0] }
         switch key {
         case .speed:
-            if let speed = value(.speed) { rawInstantPipeline.acceptSpeed(speed, now: now) }
+            if let speed = live(.speed) { rawInstantPipeline.acceptSpeed(speed, now: now) }
         case .power:
-            if let power = value(.power) { rawInstantPipeline.acceptPower(power, now: now) }
+            if let power = live(.power) { rawInstantPipeline.acceptPower(power, now: now) }
         case .hvCurrent, .hvVoltage:
-            if key == .hvCurrent || key == .hvVoltage, value(.power) != nil {
-                if let power = value(.power) { rawInstantPipeline.acceptPower(power, now: now) }
+            if live(.power) != nil, let power = live(.power) {
+                rawInstantPipeline.acceptPower(power, now: now)
             }
         default:
             break
@@ -201,8 +215,55 @@ final class TelemetryStore: ObservableObject {
     }
 
     private func syncRawInstantConsumption(now: Date = Date()) {
-        let gear = Ex30Calculations.gearLabel(from: value(.gear))
+        // Demo açıkken canlı gear/power ile pipeline'ı kirletme; gerçek bağlantı korunur.
+        guard !demoMode else { return }
+        let gear = Ex30Calculations.gearLabel(from: resolver.value(.gear) ?? lastKnownValues[.gear])
         rawInstantPipeline.update(gearLabel: gear, now: now)
         rawInstantKwhPer100Km = rawInstantPipeline.displayKwh100
+    }
+}
+
+/// Canlı bağlantı olmadan ana/alt sayfa önizlemesi için makul kurgusal okumalar.
+enum DemoTelemetry {
+    static func instantKwhPer100Km(now: Date = Date()) -> Double {
+        let wave = sin(now.timeIntervalSinceReferenceDate / 3.2)
+        return (16 + 14 * wave).clamped(-99.9...99.9)
+    }
+
+    static func value(for key: SensorKey, now: Date = Date()) -> Double? {
+        let mid = sin(now.timeIntervalSinceReferenceDate / 3.2)
+        switch key {
+        case .speed: return (78 + 16 * mid).clamped(0...180)
+        case .power: return (18 + 22 * mid).clamped(-99.9...99.9)
+        case .soc: return 72
+        case .rawSoc: return 70.4
+        case .range: return 268
+        case .odometer: return 12_450
+        case .torque: return (160 + 70 * mid).clamped(-400...400)
+        case .mechanicalPower: return (95 + 40 * mid).clamped(-200...270)
+        case .outsideTemp: return 18
+        case .pedal: return (28 + 22 * mid).clamped(0...100)
+        case .rpm: return (5_800 + 1_200 * mid).clamped(0...12_000)
+        case .hvCurrent: return (-38 + 20 * mid).clamped(-400...400)
+        case .hvVoltage: return 398
+        case .motorTemp: return 41
+        case .iemCoolantTemp: return 36
+        case .batteryTemp: return 24
+        case .batteryTempMax: return 27
+        case .soh: return 97.5
+        case .cellMaxVoltage: return 4.118
+        case .cellMinVoltage: return 4.052
+        case .cellMinSoc: return 68.2
+        case .supply12v: return 13.8
+        case .coolingValveActual: return 40
+        case .coolingValveRequested: return 42
+        case .chargePowerLimit: return 150
+        case .dischargePowerLimit: return 220
+        case .gear: return 4
+        case .currentGear: return 4
+        case .nightMode: return 0
+        case .batteryEnergy: return 47.5
+        case .batteryCapacity: return 66
+        }
     }
 }

@@ -278,6 +278,8 @@ private struct SettingsOverlay: View {
                                 }
                             }
                             Divider().overlay(Color.primary.opacity(0.15))
+                            Toggle("Demo", isOn: $telemetry.demoMode)
+                                .font(.system(size: 12, design: .rounded))
                             Toggle("VHAL kopunca 4 dk sonra uyku", isOn: $telemetry.sleepAfterVhalDisconnect)
                                 .font(.system(size: 12, design: .rounded))
                         }

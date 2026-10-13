@@ -8,6 +8,33 @@ extension Double {
 
 /// Android `Ex30Calculations` + ham anlık tüketim pipeline (`AndroidCarDataSource.updateInstantConsumption`).
 enum Ex30Calculations {
+    /// Android `Ex30Battery.USABLE_KWH_DEFAULT`.
+    static let usableKwhDefault: Double = 66
+
+    /// Android `Ex30Calculations.normalizeBatteryCapacityKwh`.
+    static func normalizeBatteryCapacityKwh(_ raw: Double) -> Double {
+        if raw <= 0 { return usableKwhDefault }
+        if raw < 200 { return max(raw, usableKwhDefault) }
+        if raw > 1_000 { return raw / 1_000 }
+        return usableKwhDefault
+    }
+
+    /// Android `Ex30Calculations.normalizeBatteryEnergyKwh`.
+    static func normalizeBatteryEnergyKwh(_ raw: Double, capacityKwh: Double) -> Double {
+        if raw <= 0 { return 0 }
+        let capacityKwhSafe = capacityKwh <= 0 ? usableKwhDefault : capacityKwh
+        if raw < capacityKwhSafe * 1.2 { return raw.clamped(0...(capacityKwhSafe * 1.2)) }
+        if raw > 1_000 { return (raw / 1_000).clamped(0...(capacityKwhSafe * 1.2)) }
+        if raw <= 100 { return (raw / 100) * capacityKwhSafe }
+        return raw.clamped(0...(capacityKwhSafe * 1.2))
+    }
+
+    /// Android `Ex30Calculations.calculateSocPercent`.
+    static func calculateSocPercent(energyKwh: Double, capacityKwh: Double) -> Double {
+        guard capacityKwh > 0 else { return 0 }
+        return (energyKwh / capacityKwh * 100).clamped(0...100)
+    }
+
     static func normalizePowerKw(_ raw: Double) -> Double {
         let absValue = abs(raw)
         if absValue >= 500_000 { return raw / 1_000_000 }

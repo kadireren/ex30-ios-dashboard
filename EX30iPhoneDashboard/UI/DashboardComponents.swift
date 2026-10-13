@@ -52,6 +52,84 @@ enum InstantConsumptionDisplay {
     }
 }
 
+/// Sport temaları: yarım halka + ortalanmış değer; birim değerin altında (çakışmasız).
+struct InstantConsumptionRing: View {
+    let kwh100: Double?
+    let color: Color
+    var diameter: CGFloat = 220
+    var ringWidth: CGFloat = 14
+    var valueFontSize: CGFloat = 22
+    var unitFontSize: CGFloat = 12
+
+    var body: some View {
+        let clipHeight = diameter * 0.58
+        VStack(spacing: 4) {
+            ZStack {
+                RingGauge(progress: abs(kwh100 ?? 0) / 99.9, color: color, width: ringWidth)
+                    .rotationEffect(.degrees(40))
+                    .frame(width: diameter, height: diameter)
+                Text(InstantConsumptionDisplay.valueText(kwh100))
+                    .font(.system(size: valueFontSize, weight: .bold, design: .rounded))
+                    .foregroundStyle(color)
+                    .monospacedDigit()
+                    .minimumScaleFactor(0.7)
+                    .lineLimit(1)
+                    .offset(y: clipHeight * 0.12)
+                    .animation(.easeOut(duration: 0.14), value: kwh100)
+            }
+            .frame(width: diameter, height: clipHeight, alignment: .top)
+            .clipped()
+
+            Text(InstantConsumptionDisplay.unit)
+                .font(.system(size: unitFontSize, weight: .medium, design: .rounded))
+                .foregroundStyle(color.opacity(0.75))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+        .frame(width: diameter)
+    }
+}
+
+/// Yarım halka + değer (açık ağızda) + birim (halkanın altında). Offset ile taşma yok.
+struct InstantConsumptionGauge: View {
+    let kwh100: Double?
+    let color: Color
+    var diameter: CGFloat = 220
+    var lineWidth: CGFloat = 14
+    var valueFontSize: CGFloat = 22
+
+    private var halfHeight: CGFloat { diameter * 0.56 }
+
+    var body: some View {
+        VStack(spacing: 3) {
+            ZStack(alignment: .bottom) {
+                RingGauge(progress: abs(kwh100 ?? 0) / 99.9, color: color, width: lineWidth)
+                    .frame(width: diameter, height: diameter)
+                    .rotationEffect(.degrees(40))
+                    .frame(width: diameter, height: halfHeight, alignment: .top)
+                    .clipped()
+
+                Text(InstantConsumptionDisplay.valueText(kwh100))
+                    .font(.system(size: valueFontSize, weight: .bold, design: .rounded))
+                    .foregroundStyle(color)
+                    .monospacedDigit()
+                    .minimumScaleFactor(0.7)
+                    .lineLimit(1)
+                    .padding(.bottom, halfHeight * 0.08)
+                    .animation(.easeOut(duration: 0.14), value: kwh100)
+            }
+            .frame(width: diameter, height: halfHeight)
+
+            Text(InstantConsumptionDisplay.unit)
+                .font(.system(size: max(11, valueFontSize * 0.55), weight: .medium, design: .rounded))
+                .foregroundStyle(color.opacity(0.75))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+        .frame(width: diameter)
+    }
+}
+
 enum MainFooterMetricStyle {
     static let socRangeText = Font.system(size: 19, weight: .medium, design: .rounded)
     static let odoValue = Font.system(size: 19, weight: .medium, design: .rounded)

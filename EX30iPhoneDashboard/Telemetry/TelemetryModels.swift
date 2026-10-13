@@ -6,7 +6,12 @@ enum VHALSubscription {
             (1, .speed), (3, .power), (4, .soc), (5, .range),
             (6, .gear), (7, .currentGear), (10, .outsideTemp), (11, .nightMode)
         ]
-        let ids = sensors.filter { visibleSensors.contains($0.1) }.map(\.0)
+        var ids = sensors.filter { visibleSensors.contains($0.1) }.map(\.0)
+        // .soc fallback needs raw energy/capacity (bridge ids 13/14), not only precomputed id 4.
+        if visibleSensors.contains(.soc) {
+            ids.append(13)
+            ids.append(14)
+        }
         return Data([0xE3, 0x30, 0x01, 0x01, UInt8(ids.count)] + ids)
     }
 }
@@ -97,6 +102,10 @@ enum SensorKey: String, CaseIterable {
     case motorTemp, iemCoolantTemp, batteryTemp, batteryTempMax, soh
     case cellMaxVoltage, cellMinVoltage, cellMinSoc, supply12v
     case coolingValveActual, coolingValveRequested, chargePowerLimit, dischargePowerLimit
+    /// Bridge BLE id 13 — internal VHAL SOC fallback input (not shown in UI).
+    case batteryEnergy
+    /// Bridge BLE id 14 — internal VHAL SOC fallback input (not shown in UI).
+    case batteryCapacity
 
     var title: String {
         switch self {
@@ -129,6 +138,8 @@ enum SensorKey: String, CaseIterable {
         case .coolingValveRequested: "HV soğutma valfi istenen"
         case .chargePowerLimit: "Şarj güç limiti"
         case .dischargePowerLimit: "Deşarj güç limiti"
+        case .batteryEnergy: "Batarya enerjisi"
+        case .batteryCapacity: "Batarya kapasitesi"
         }
     }
 
@@ -144,6 +155,7 @@ enum SensorKey: String, CaseIterable {
         case .motorTemp, .iemCoolantTemp, .batteryTemp, .batteryTempMax, .outsideTemp: "°C"
         case .hvCurrent: "A"
         case .hvVoltage, .cellMaxVoltage, .cellMinVoltage, .supply12v: "V"
+        case .batteryEnergy, .batteryCapacity: "kWh"
         case .gear, .currentGear, .nightMode: ""
         }
     }
@@ -161,6 +173,7 @@ enum SensorKey: String, CaseIterable {
 
     var isUserSelectable: Bool {
         self != .nightMode && self != .gear && self != .currentGear
+            && self != .batteryEnergy && self != .batteryCapacity
     }
 
     var decimals: Int {

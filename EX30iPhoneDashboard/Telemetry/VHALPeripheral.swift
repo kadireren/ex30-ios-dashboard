@@ -160,7 +160,8 @@ final class VHALPeripheral: NSObject, CBPeripheralManagerDelegate, @unchecked Se
 
     private static let sensorIDToKey: [UInt8: SensorKey] = [
         1: .speed, 2: .speed, 3: .power, 4: .soc, 5: .range,
-        6: .gear, 7: .currentGear, 10: .outsideTemp, 11: .nightMode
+        6: .gear, 7: .currentGear, 10: .outsideTemp, 11: .nightMode,
+        13: .batteryEnergy, 14: .batteryCapacity
     ]
 
 }

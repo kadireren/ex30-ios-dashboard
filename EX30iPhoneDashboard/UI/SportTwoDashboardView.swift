@@ -7,56 +7,66 @@ struct SportTwoDashboardView: View {
         let speed = telemetry.value(.speed)
         let torque = telemetry.value(.torque)
         let hp = telemetry.value(.mechanicalPower)
-        let power = telemetry.value(.power)
-        let displayedPower = power.map { $0.clamped(-99.9...99.9) }
-        VStack(spacing: 0) {
-            HStack(alignment: .center, spacing: 18) {
-                if telemetry.visibleSensors.contains(.speed) {
-                    VStack(spacing: 0) {
-                        Text(speed.map { String(Int($0.rounded())) } ?? "--")
-                            .font(.system(size: 88, weight: .thin, design: .rounded)).monospacedDigit()
-                        Text("km/h").font(.system(size: 18)).foregroundStyle(.primary.opacity(0.65))
-                    }
-                    .frame(width: 205)
-                }
-                if telemetry.visibleSensors.contains(.power) {
-                    let consumptionColor = (displayedPower ?? 0) < 0 ? Color.cyan : Color(red: 1, green: 0.38, blue: 0.2)
-                    VStack(spacing: 3) {
-                        ZStack {
-                            RingGauge(progress: abs(displayedPower ?? 0) / 99.9,
-                                      color: consumptionColor, width: 14)
-                                .rotationEffect(.degrees(40))
-                            Text(InstantConsumptionDisplay.valueText(telemetry.rawInstantKwhPer100Km))
-                                .font(.system(size: 21, weight: .bold, design: .rounded))
-                                .foregroundStyle(consumptionColor)
+        let displayedInstant = telemetry.displayInstantKwhPer100Km
+        GeometryReader { geometry in
+            let colGap: CGFloat = 12
+            let usableWidth = geometry.size.width - colGap * 2
+            let speedCol = usableWidth * 0.26
+            let ringCol = usableWidth * 0.36
+            let cardCol = usableWidth * 0.38
+            let speedSize = min(88, max(52, geometry.size.height * 0.32))
+            let ringDiameter = min(ringCol, geometry.size.height * 0.62)
+            let cardHeight = min(92, max(70, (geometry.size.height - 36) * 0.38))
+            VStack(spacing: 0) {
+                HStack(alignment: .center, spacing: colGap) {
+                    if telemetry.visibleSensors.contains(.speed) {
+                        VStack(spacing: 0) {
+                            Text(speed.map { String(Int($0.rounded())) } ?? "--")
+                                .font(.system(size: speedSize, weight: .thin, design: .rounded))
                                 .monospacedDigit()
-                                .offset(y: 18)
-                                .animation(.easeOut(duration: 0.14), value: telemetry.rawInstantKwhPer100Km)
+                                .minimumScaleFactor(0.65)
+                                .lineLimit(1)
+                            Text("km/h")
+                                .font(.system(size: max(13, speedSize * 0.2)))
+                                .foregroundStyle(.primary.opacity(0.65))
                         }
-                        .frame(width: 220, height: 135)
-                        Text(InstantConsumptionDisplay.unit)
-                            .font(.system(size: 12, weight: .medium, design: .rounded))
-                            .foregroundStyle(consumptionColor.opacity(0.75))
+                        .frame(width: speedCol)
                     }
-                    .frame(width: 220)
+                    if telemetry.visibleSensors.contains(.power) {
+                        let consumptionColor = (displayedInstant ?? 0) < 0
+                            ? Color.cyan : Color(red: 1, green: 0.38, blue: 0.2)
+                        InstantConsumptionRing(
+                            kwh100: displayedInstant,
+                            color: consumptionColor,
+                            diameter: ringDiameter,
+                            ringWidth: max(11, ringDiameter * 0.06),
+                            valueFontSize: max(17, ringDiameter * 0.095),
+                            unitFontSize: max(10, ringDiameter * 0.055)
+                        )
+                        .frame(width: ringCol)
+                    }
+                    VStack(spacing: 8) {
+                        if telemetry.visibleSensors.contains(.torque) {
+                            HorizontalMetricCard(title: "ERAD TORQUE", value: torque, unit: "Nm",
+                                                 color: .orange, progress: abs(torque ?? 0) / 400,
+                                                 height: cardHeight)
+                        }
+                        if telemetry.visibleSensors.contains(.mechanicalPower) {
+                            HorizontalMetricCard(title: "ERAD MECH POWER", value: hp, unit: "hp",
+                                                 color: Color(red: 1, green: 0.35, blue: 0.2),
+                                                 progress: abs(hp ?? 0) / 270,
+                                                 height: cardHeight)
+                        }
+                    }
+                    .frame(width: cardCol)
                 }
-                VStack(spacing: 10) {
-                    if telemetry.visibleSensors.contains(.torque) {
-                        HorizontalMetricCard(title: "ERAD TORQUE", value: torque, unit: "Nm", color: .orange,
-                                             progress: abs(torque ?? 0) / 400)
-                    }
-                    if telemetry.visibleSensors.contains(.mechanicalPower) {
-                        HorizontalMetricCard(title: "ERAD MECH POWER", value: hp, unit: "hp",
-                                             color: Color(red: 1, green: 0.35, blue: 0.2),
-                                             progress: abs(hp ?? 0) / 270)
-                    }
-                }
-                .frame(width: 220)
+                .frame(maxHeight: .infinity)
+                FooterMetrics(soc: telemetry.value(.soc), odometer: telemetry.value(.odometer),
+                              range: telemetry.value(.range), visibleSensors: telemetry.visibleSensors)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 2)
             }
-            Spacer()
-            FooterMetrics(soc: telemetry.value(.soc), odometer: telemetry.value(.odometer),
-                          range: telemetry.value(.range), visibleSensors: telemetry.visibleSensors)
-                .padding(.horizontal, 28).padding(.bottom, 2)
+            .frame(width: geometry.size.width, height: geometry.size.height)
         }
     }
 }
@@ -68,22 +78,32 @@ private struct HorizontalMetricCard: View {
     let unit: String
     let color: Color
     let progress: Double
+    var height: CGFloat = 92
 
     var body: some View {
+        let ringSize = min(64, height * 0.7)
         HStack {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(title).font(.system(size: 13, weight: .semibold)).foregroundStyle(.primary.opacity(0.82))
+            VStack(alignment: .leading, spacing: 6) {
+                Text(title)
+                    .font(.system(size: max(10, height * 0.13), weight: .semibold))
+                    .foregroundStyle(.primary.opacity(0.82))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
                 HStack(alignment: .firstTextBaseline, spacing: 5) {
                     Text(value.map { String(format: "%+.0f", $0) } ?? "--")
-                        .font(.system(size: 27, weight: .bold, design: .rounded)).foregroundStyle(color)
+                        .font(.system(size: max(20, height * 0.28), weight: .bold, design: .rounded))
+                        .foregroundStyle(color)
+                        .minimumScaleFactor(0.7)
+                        .lineLimit(1)
                     Text(unit).font(.caption).foregroundStyle(.primary.opacity(0.7))
                 }
             }
-            Spacer()
-            RingGauge(progress: progress, color: color, width: 8).frame(width: 64, height: 64)
+            Spacer(minLength: 4)
+            RingGauge(progress: progress, color: color, width: max(6, ringSize * 0.12))
+                .frame(width: ringSize, height: ringSize)
         }
-        .padding(.horizontal, 14)
-        .frame(height: 92)
+        .padding(.horizontal, 12)
+        .frame(height: height)
         .background(colorScheme == .dark ? Color(red: 0.03, green: 0.04, blue: 0.05) : Color.white)
         .overlay(RoundedRectangle(cornerRadius: 5).stroke(Color.primary.opacity(0.22), lineWidth: 1.5))
     }
