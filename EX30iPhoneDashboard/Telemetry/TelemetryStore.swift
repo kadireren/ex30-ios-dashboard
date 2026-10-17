@@ -34,6 +34,7 @@ final class TelemetryStore: ObservableObject {
     @Published private(set) var resolver = TelemetryResolver()
     /// Android `instantKwhPer100KmRaw` (±99.9, P viteste 0).
     @Published private(set) var rawInstantKwhPer100Km: Double?
+    @Published private(set) var smoothInstantKwhPer100Km: Double?
     @Published var visibleSensors: Set<SensorKey> {
         didSet {
             UserDefaults.standard.set(visibleSensors.map(\.rawValue), forKey: "visibleSensors")
@@ -43,7 +44,7 @@ final class TelemetryStore: ObservableObject {
 
     /// Demo açıksa kurgusal anlık tüketim; aksi halde gerçek pipeline.
     var displayInstantKwhPer100Km: Double? {
-        demoMode ? DemoTelemetry.instantKwhPer100Km() : rawInstantKwhPer100Km
+        demoMode ? DemoTelemetry.instantKwhPer100Km() : smoothInstantKwhPer100Km
     }
 
     private var obd: OBDCentral?
@@ -101,7 +102,7 @@ final class TelemetryStore: ObservableObject {
         guard !started else { return }
         started = true
         // Re-evaluate source selection even when VHAL silently stops sending.
-        freshnessTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+        freshnessTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.syncRawInstantConsumption()
                 self?.objectWillChange.send()
@@ -222,6 +223,7 @@ final class TelemetryStore: ObservableObject {
         let gear = Ex30Calculations.gearLabel(from: resolver.value(.gear) ?? lastKnownValues[.gear])
         rawInstantPipeline.update(gearLabel: gear, now: now)
         rawInstantKwhPer100Km = rawInstantPipeline.displayKwh100
+        smoothInstantKwhPer100Km = rawInstantPipeline.smoothKwh100
     }
 }
 

@@ -42,7 +42,7 @@ struct MinimalDashboardView: View {
                             .monospacedDigit()
                             .foregroundStyle(Color(red: 0.84, green: 0.66, blue: 0.29))
                             .padding(.top, 8)
-                            .animation(.easeOut(duration: 0.14), value: displayedInstant)
+                            .animation(.timingCurve(0.4, 0, 0.2, 1, duration: 0.38), value: displayedInstant)
                         Text(InstantConsumptionDisplay.unit)
                             .font(.system(size: max(11, valueSize * 0.55), weight: .medium, design: .rounded))
                             .foregroundStyle(Color(red: 0.84, green: 0.66, blue: 0.29).opacity(0.75))
@@ -112,6 +112,6 @@ private struct PowerBar: View {
             }
         }
         .frame(height: 15)
-        .animation(.linear(duration: 0.12), value: power)
+        .animation(.timingCurve(0.4, 0, 0.2, 1, duration: 0.38), value: power)
     }
 }

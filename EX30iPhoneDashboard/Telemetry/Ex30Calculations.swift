@@ -91,6 +91,8 @@ struct RawInstantConsumptionPipeline {
     private static let nullInstantHold: TimeInterval = 4
 
     private(set) var displayKwh100: Double?
+    private(set) var smoothKwh100: Double?
+    private var smoothPipeline = SmoothInstantConsumptionPipeline()
     private var lastRawPowerKw: Double?
     private var lastPowerUpdate: Date?
     private var lastSpeedKmh: Double?
@@ -146,12 +148,75 @@ struct RawInstantConsumptionPipeline {
 
         lastValidInstantAt = now
         displayKwh100 = rawInstant.clamped(-99.9...99.9)
+        smoothKwh100 = smoothPipeline.update(displayKwh100!, now: now)
     }
 
     private mutating func resetInstantPipelines(_ resetValue: Double?) {
         displayKwh100 = resetValue
+        smoothPipeline.reset(resetValue)
+        smoothKwh100 = resetValue
         if resetValue == nil {
             lastValidInstantAt = nil
         }
+    }
+}
+
+/// Android InstantDisplayProfile.SMOOTH_DEFAULT, sampled every 250 ms.
+struct SmoothInstantConsumptionPipeline {
+    private var samples: [(time: Date, value: Double)] = []
+    private var ema: Double?
+    private var output: Double?
+    private var lastUpdate: Date?
+    private var pendingSign = 0
+    private var pendingSignSince: Date?
+
+    mutating func reset(_ value: Double?) {
+        samples.removeAll()
+        ema = value
+        output = value
+        lastUpdate = nil
+        pendingSign = 0
+        pendingSignSince = nil
+    }
+
+    mutating func update(_ raw: Double, now: Date) -> Double {
+        if let lastUpdate, now.timeIntervalSince(lastUpdate) < 0.25 {
+            return output ?? raw
+        }
+        samples.append((now, raw))
+        while samples.count > 1 && now.timeIntervalSince(samples[0].time) > 4.1 {
+            samples.removeFirst()
+        }
+        let threshold = now.addingTimeInterval(-1.1)
+        while samples.count > 1 && samples[1].time <= threshold {
+            samples.removeFirst()
+        }
+        var target = samples[0].value
+        if abs(target) < 3 { target = 0 }
+        let targetSign = sign(target)
+        let currentSign = sign(output ?? ema ?? 0)
+        if targetSign == 0 || currentSign == 0 || currentSign == targetSign {
+            pendingSign = 0
+            pendingSignSince = nil
+        } else {
+            if pendingSign != targetSign {
+                pendingSign = targetSign
+                pendingSignSince = now
+            }
+            if now.timeIntervalSince(pendingSignSince ?? now) < 0.5 { target = 0 }
+        }
+        let filtered = ema.map { $0 + 0.18 * (target - $0) } ?? target
+        ema = filtered
+        let previous = output ?? filtered
+        let dt = lastUpdate.map { max(0.001, now.timeIntervalSince($0)) } ?? 0.25
+        lastUpdate = now
+        let delta = 42 * dt
+        let limited = filtered.clamped((previous - delta)...(previous + delta)).clamped(-99.9...99.9)
+        output = limited
+        return limited
+    }
+
+    private func sign(_ value: Double) -> Int {
+        value > 0.25 ? 1 : (value < -0.25 ? -1 : 0)
     }
 }

@@ -25,6 +25,7 @@ struct RingGauge: View {
     let progress: Double
     let color: Color
     let width: CGFloat
+    var animation: Animation = .linear(duration: 0.12)
 
     var body: some View {
         ZStack {
@@ -34,7 +35,7 @@ struct RingGauge: View {
                                                 style: StrokeStyle(lineWidth: width, lineCap: .round))
         }
         .padding(width / 2)
-        .animation(.linear(duration: 0.12), value: progress)
+        .animation(animation, value: progress)
     }
 }
 
@@ -66,7 +67,8 @@ struct InstantConsumptionRing: View {
     var body: some View {
         VStack(spacing: 3) {
             ZStack(alignment: .bottom) {
-                RingGauge(progress: abs(kwh100 ?? 0) / 99.9, color: color, width: ringWidth)
+                RingGauge(progress: abs(kwh100 ?? 0) / 99.9, color: color, width: ringWidth,
+                          animation: .timingCurve(0.4, 0, 0.2, 1, duration: 0.38))
                     .frame(width: diameter, height: diameter)
                     .rotationEffect(.degrees(40))
                     .frame(width: diameter, height: halfHeight, alignment: .top)
@@ -79,7 +81,7 @@ struct InstantConsumptionRing: View {
                     .minimumScaleFactor(0.7)
                     .lineLimit(1)
                     .padding(.bottom, halfHeight * 0.08)
-                    .animation(.easeOut(duration: 0.14), value: kwh100)
+                    .animation(.timingCurve(0.4, 0, 0.2, 1, duration: 0.38), value: kwh100)
             }
             .frame(width: diameter, height: halfHeight)
 
@@ -106,7 +108,8 @@ struct InstantConsumptionGauge: View {
     var body: some View {
         VStack(spacing: 3) {
             ZStack(alignment: .bottom) {
-                RingGauge(progress: abs(kwh100 ?? 0) / 99.9, color: color, width: lineWidth)
+                RingGauge(progress: abs(kwh100 ?? 0) / 99.9, color: color, width: lineWidth,
+                          animation: .timingCurve(0.4, 0, 0.2, 1, duration: 0.38))
                     .frame(width: diameter, height: diameter)
                     .rotationEffect(.degrees(40))
                     .frame(width: diameter, height: halfHeight, alignment: .top)
@@ -119,7 +122,7 @@ struct InstantConsumptionGauge: View {
                     .minimumScaleFactor(0.7)
                     .lineLimit(1)
                     .padding(.bottom, halfHeight * 0.08)
-                    .animation(.easeOut(duration: 0.14), value: kwh100)
+                    .animation(.timingCurve(0.4, 0, 0.2, 1, duration: 0.38), value: kwh100)
             }
             .frame(width: diameter, height: halfHeight)
 

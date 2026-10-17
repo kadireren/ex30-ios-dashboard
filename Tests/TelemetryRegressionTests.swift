@@ -124,6 +124,30 @@ enum TelemetryRegressionTests {
         precondition(abs(instantPipe.displayKwh100! - 50) < 0.001)
         instantPipe.update(gearLabel: "P", now: t0.addingTimeInterval(1))
         precondition(instantPipe.displayKwh100 == 0)
+        precondition(instantPipe.smoothKwh100 == 0)
+        var smooth = SmoothInstantConsumptionPipeline()
+        precondition(smooth.update(0, now: t0) == 0)
+        for step in 1...4 {
+            precondition(smooth.update(100, now: t0.addingTimeInterval(Double(step) * 0.25)) == 0)
+        }
+        precondition(smooth.update(100, now: t0.addingTimeInterval(1.25)) == 0)
+        // Delayed 100 enters EMA at 1.5s; 18 is rate-limited to 10.5.
+        precondition(abs(smooth.update(100, now: t0.addingTimeInterval(1.5)) - 10.5) < 0.001)
+        // Extra sensor callbacks must not accelerate the 250ms filter.
+        precondition(abs(smooth.update(100, now: t0.addingTimeInterval(1.6)) - 10.5) < 0.001)
+        smooth.reset(0)
+        precondition(smooth.update(2.9, now: t0) == 0)
+        smooth.reset(nil)
+        precondition(smooth.update(50, now: t0) == 50)
+        for step in 1...5 {
+            _ = smooth.update(-50, now: t0.addingTimeInterval(Double(step) * 0.25))
+        }
+        // Reversal is held at zero for 500ms before the negative target enters EMA.
+        let held1 = smooth.update(-50, now: t0.addingTimeInterval(1.5))
+        let held2 = smooth.update(-50, now: t0.addingTimeInterval(1.75))
+        precondition(abs(held1 - 41) < 0.001)
+        precondition(abs(held2 - 33.62) < 0.001)
+        precondition(abs(smooth.update(-50, now: t0.addingTimeInterval(2)) - 23.12) < 0.001)
         print("Telemetry regression checks passed")
     }
 }
